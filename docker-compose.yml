@@ -1,0 +1,75 @@
+# docker-compose.yml
+
+services:                                                    # Sección que define los servicios (contenedores)
+
+  mongo:                                                     # Servicio de base de datos MongoDB
+    image: mongo:6.0                                         # Imagen oficial de Mongo v6.0
+    container_name: mongo_rs                                 # Nombre del contenedor (fácil de identificar)
+    restart: always                                          # Si se cae, que se reinicie
+    ports:
+      - "27017:27017"                                        # Exponer Mongo en el host (localhost:27017)
+    volumes:
+      - ./data/db:/data/db                                   # Persistencia de datos en carpeta local
+    command:                                                 # Comando en forma lista (evita errores de YAML)
+      - mongod                                               # Ejecutable principal
+      - --replSet                                            # Activar Replica Set
+      - rs0                                                  # Nombre del Replica Set (rs0)
+      - --bind_ip_all                                        # Escuchar todas las interfaces (necesario en Docker)
+    healthcheck:                                             # Chequeo de salud (espera a que el RS esté listo)
+      test: ["CMD-SHELL", "mongosh --host localhost:27017 --quiet --eval 'try { (rs.status().ok || rs.initiate({_id:\"rs0\",members:[{_id:0,host:\"mongo:27017\"}]}).ok) } catch(e) { 0 }' | grep -q 1"]
+      timeout: 10s                                           # Tiempo máximo por intento
+      retries: 10                                            # Reintentos antes de marcar unhealthy
+    networks:
+      - penguin_net                                          # Red compartida con backend y frontend
+
+  backend:                                                   # Servicio Backend (Node Admin)
+    build:                                                   # Build del contenedor desde carpeta ./backend
+      context: ./backend                                     # Carpeta donde está el código del backend
+      dockerfile: Dockerfile                                 # Dockerfile a usar (ver más abajo)
+    container_name: penguin_backend                          # Nombre del contenedor
+    depends_on:                                              # Esperar a que Mongo esté healthy antes de arrancar
+      mongo:
+        condition: service_healthy
+    environment:                                             # Variables de entorno inyectadas al contenedor
+      - PORT=4000                                            # Puerto en el que corre el backend dentro del contenedor
+      - MONGO_URI=mongodb://mongo:27017/penguin_shop?replicaSet=rs0  # Conexión a Mongo por nombre de servicio
+      - NODE_ENV=production                                  # Modo producción (puede cambiar a development)
+    ports:
+      - "4000:4000"                                          # Exponer backend en localhost:4000
+    networks:
+      - penguin_net                                          # Misma red que mongo y frontend
+    restart: unless-stopped                                  # Reiniciar salvo que sea detenido manualmente
+    healthcheck:                                             # Healthcheck simple del backend
+      test: ["CMD-SHELL", "wget -qO- http://localhost:4000/ >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  frontend:                                                  # Servicio Frontend (Go server)
+    build:                                                   # Build del contenedor desde carpeta ./frontend
+      context: ./frontend                                    # Carpeta donde está el código del frontend Go
+      dockerfile: Dockerfile                                 # Dockerfile a usar (ver más abajo)
+    container_name: penguin_frontend                         # Nombre del contenedor
+    depends_on:                                              # Esperar a que Mongo esté healthy
+      mongo:
+        condition: service_healthy
+    environment:                                             # Variables de entorno para el servidor Go
+      - APP_ENV=production                                   # para que no use godotenv dentro del contenedor
+      - PORT_FRONTEND=8080                                   # Puerto del server Go dentro del contenedor
+      - MONGO_URI=mongodb://mongo:27017/penguin_shop?replicaSet=rs0  # Conexión a Mongo por nombre de servicio
+      - MONGO_DB=penguin_shop                                # Nombre de la base
+      - APP_ENV=production                                   # Modo producción (en Docker no hace falta godotenv)
+    ports:
+      - "8080:8080"                                          # Exponer frontend en localhost:8080
+    networks:
+      - penguin_net                                          # Misma red que mongo y backend
+    restart: unless-stopped                                  # Reiniciar salvo stop manual
+    healthcheck:                                             # Healthcheck simple del frontend
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/ >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+networks:                                                    # Definición de redes
+  penguin_net:                                               # Red compartida entre servicios
+    driver: bridge                                           # Driver bridge (por defecto en Docker)
