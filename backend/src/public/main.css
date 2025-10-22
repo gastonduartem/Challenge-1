@@ -1,0 +1,11 @@
+/* main.css — Estilos mínimos para que no se vea crudo */
+:root{ --ink:#0b1020; --muted:#6b7280; --bg:#f7fafc; --card:#fff; --border:#e2e8f0; }
+*{ box-sizing:border-box; }
+body{ background:var(--bg); color:var(--ink); font-family:system-ui,Segoe UI,Roboto; margin:0; }
+header{ background:#eaf2ff; padding:16px 20px; border-bottom:1px solid var(--border); }
+main{ padding:24px; max-width:860px; margin:0 auto; }
+form{ background:var(--card); border:1px solid var(--border); padding:16px; border-radius:12px; max-width:420px; }
+label{ display:block; margin-top:8px; font-size:14px; color:var(--muted); }
+input{ width:100%; margin-top:4px; padding:10px 12px; border:1px solid var(--border); border-radius:8px; }
+button{ margin-top:12px; padding:10px 14px; border:none; border-radius:10px; background:#111827; color:#fff; cursor:pointer; }
+button:hover{ opacity:.9; }

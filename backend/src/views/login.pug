@@ -1,0 +1,33 @@
+extends layout
+//- DEBE ser la primera línea del archivo
+
+//- login.pug — Formulario de login con CSRF y sin JS
+
+//- Define el bloque 'content'
+block content
+  //- Si viene un mensaje de error
+  if error_msg
+    //- Mostramos mensaje en rojo (interpolación)
+    p(style="color:#b91c1c") #{error_msg}
+
+  //- Formulario que hace POST a /login
+  form(method="POST" action="/login")
+    //-- Token CSRF obligatorio
+    //- Token CSRF
+    input(type="hidden" name="csrf_token" value=csrf_token)
+
+    //- Email
+    //- Label del email
+    label(for="email") Email
+    //- Input email
+    input(type="email" id="email" name="email" required placeholder="paula@penguin.com")
+
+    //- Password
+    //- Label de password
+    label(for="password") Password
+    //- Input password
+    input(type="password" id="password" name="password" required placeholder="********")
+
+    //- Botón
+    //- Botón de enviar
+    button(type="submit") Ingresar

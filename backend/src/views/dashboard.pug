@@ -1,0 +1,25 @@
+extends layout
+//- DEBE ser la primera línea
+
+//- dashboard.pug — Pantalla inicial del panel (navegación POST-only con token oculto)
+
+//- Bloque de contenido
+block content
+  //- Texto de bienvenida
+  p Panel de administración listo.
+
+  //-- Botón para ir al dashboard (ejemplo de navegación POST-only)
+  //- Form que navega al dashboard
+  form(method="POST" action="/dashboard")
+    //- Token JWT (rotado en cada request)
+    input(type="hidden" name="token" value=token)
+    //- Token CSRF para validación
+    input(type="hidden" name="csrf_token" value=csrf_token)
+    //- Botón de acción
+    button(type="submit") Refrescar (POST)
+
+  //- Botón de salir (logout)
+  //- Form de logout
+  form(method="POST" action="/logout" style="margin-top:1rem")
+    //- Logout
+    button(type="submit" style="background:#b91c1c;color:#fff") Salir

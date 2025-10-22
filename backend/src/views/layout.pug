@@ -1,0 +1,32 @@
+//- layout.pug — Layout base para el admin
+
+//- Declaración de documento HTML5
+doctype html                                             
+//- Etiqueta html con idioma español
+html(lang="es")
+  //- Cabeza del documento
+  head
+    //- Codificación UTF-8
+    meta(charset="utf-8")
+    //- Responsive
+    meta(name="viewport" content="width=device-width, initial-scale=1")
+    //- Título de la pestaña
+    title Admin — Penguin Shop
+    //- CSS
+    link(rel="stylesheet" href="/public/main.css")
+
+  //- Cuerpo
+  body
+    //- Encabezado simple
+    header
+      //- Título visible
+      h1 Admin — Penguin Shop
+      //-- Si tenemos email en locals/datos
+      if admin_email
+        //- Interpolación correcta en Pug
+        p Bienvenida, #{admin_email}
+
+    //- Contenido principal
+    main
+      //- Bloque que llenarán las vistas hijas
+      block content
