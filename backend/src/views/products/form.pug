@@ -1,0 +1,123 @@
+//- ----------------------------------------------------------
+//- FORMULARIO DE PRODUCTO (crear o editar)
+//- Renderizado por productController.new_product_form o edit_product_form
+//- Depende de la variable "mode" ('create' o 'edit')
+//- ----------------------------------------------------------
+
+//- Heredamos el layout principal (header, estilos, etc.)
+extends ../layout
+
+//- Bloque principal de contenido
+block content
+  //- Título dinámico según modo
+  h2= mode === 'edit' ? 'Editar producto' : 'Nuevo producto'
+
+  //- Si el controller manda un mensaje de error, lo mostramos en rojo
+  if error_msg
+    p(style="color: red; font-weight: bold;")= error_msg
+
+  //- FORMULARIO PRINCIPAL
+  //- enctype="multipart/form-data" es OBLIGATORIO para permitir subir imágenes
+  //- action depende del modo:
+  //-   → Si estamos editando, se envía a /products/:id
+  //-   → Si estamos creando, se envía a /products
+  //- enctype="multipart/form-data" : Necesario para enviar archivos binarios
+  form(
+    method="POST"
+    action=(mode === 'edit' ? `/products/${product._id}` : '/products')
+    enctype="multipart/form-data"              
+    style="display: flex; flex-direction: column; gap: 0.8rem; width: 400px;"
+  )
+
+
+    //- CAMPOS OCULTOS DE SEGURIDAD
+
+
+    //- TOKEN JWT (rotado cada vez que se hace una petición)
+    //- El middleware requireToken lo genera y el controller lo pasa como variable `token`
+    input(type="hidden" name="token" value=token)
+
+    //- TOKEN CSRF — evita ataques cross-site request forgery
+    //- Solo se incluye si el controller lo envió
+    if csrf_token
+      input(type="hidden" name="csrf_token" value=csrf_token)
+
+
+    //- CAMPOS VISIBLES DEL FORM
+
+
+    //- Campo: Nombre del producto
+    label(for="name") Nombre
+    input#name(
+      type="text"
+      name="name"
+      required
+      placeholder="Ej: Remera One Piece"
+      value=product.name
+    )
+
+    //- Campo: Descripción
+    label(for="description") Descripción
+    textarea#description(
+      name="description"
+      rows="3"
+      placeholder="Ej: Con tipografía de One Piece"
+    )= product.description
+
+    //- Campo: Precio
+    label(for="price") Precio (en Gs)
+    input#price(
+      type="number"
+      name="price"
+      step="0.01"
+      min="0"
+      required
+      placeholder="Ej: 120000"
+      value=product.price
+    )
+
+    //- Campo: Stock disponible
+    label(for="stock") Stock
+    input#stock(
+      type="number"
+      name="stock"
+      min="0"
+      required
+      placeholder="Ej: 10"
+      value=product.stock
+    )
+
+    //- Campo: Activo / Inactivo (checkbox)
+    label(for="is_active") Activo
+    input#is_active(
+      type="checkbox"
+      name="is_active"
+      checked=product.is_active
+    )
+
+    //- Campo: Imagen (opcional)
+    //- Importante: el nombre debe coincidir con el del multer → upload.single('image')
+    label(for="image") Imagen del producto
+    input#image(
+      type="file"
+      name="image"
+      accept="image/*"
+    )
+
+
+    //- BOTONES DE ACCIÓN
+
+
+    div(style="margin-top: 1rem; display: flex; gap: 1rem;")
+      //- Botón de envío del formulario
+      button(type="submit" style="background: #000; color: white; padding: 0.5rem 1rem; border-radius: 5px;")
+        | 💾 Guardar
+
+      //- Enlace de vuelta al listado
+      a(
+        href=`/dashboard?token=${token}`
+        style="background: #ddd; color: black; padding: 0.5rem 1rem; border-radius: 5px; text-decoration: none;"
+      )
+        | 🔙 Volver al listado
+
+  //- FIN DEL FORMULARIO

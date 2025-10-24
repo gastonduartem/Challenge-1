@@ -1,25 +1,63 @@
-extends layout
-//- DEBE ser la primera línea
 
-//- dashboard.pug — Pantalla inicial del panel (navegación POST-only con token oculto)
+//- DASHBOARD — pantalla principal del admin
+//- Muestra saludo + accesos a Productos y Logout
 
-//- Bloque de contenido
+
+//- Heredamos layout base (header, estilos)
+extends ./layout                               
+
+//- Contenido principal del dashboard
 block content
-  //- Texto de bienvenida
-  p Panel de administración listo.
+  //- Título de bienvenida
+  h2(style="margin-bottom: 1rem;") Hola, #{admin_email || 'admin'} 👋
 
-  //-- Botón para ir al dashboard (ejemplo de navegación POST-only)
-  //- Form que navega al dashboard
-  form(method="POST" action="/dashboard")
-    //- Token JWT (rotado en cada request)
-    input(type="hidden" name="token" value=token)
-    //- Token CSRF para validación
-    input(type="hidden" name="csrf_token" value=csrf_token)
-    //- Botón de acción
-    button(type="submit") Refrescar (POST)
+  //- Tarjeta simple con acciones
+  div(style="display:flex; gap:1rem; flex-wrap:wrap;")
 
-  //- Botón de salir (logout)
-  //- Form de logout
-  form(method="POST" action="/logout" style="margin-top:1rem")
-    //- Logout
-    button(type="submit" style="background:#b91c1c;color:#fff") Salir
+    //- Acción: Ir a productos (GET con token en query string)
+
+    //- Pasamos el token por query (sin cookies)
+    a(
+      href=`/products?token=${token}`         
+      style="display:inline-block; background:#0ea5e9; color:white; padding:0.75rem 1rem; border-radius:8px; text-decoration:none;"
+      title="Ver y administrar productos"
+    ) 🛍️  Productos
+
+
+    //- Acción: Agregar producto directo (GET al form de alta)
+    //- (opcional, por comodidad) — también con token en query
+
+    //- Abre el form de creación
+    a(
+      href=`/products/new?token=${token}`     
+      style="display:inline-block; background:#10b981; color:white; padding:0.75rem 1rem; border-radius:8px; text-decoration:none;"
+      title="Crear un nuevo producto"
+    ) ➕  Nuevo producto
+
+
+    //- Acción: Logout (POST-only) — con token/CSRF ocultos
+
+    form(
+      method="POST"
+      action="/logout"
+      style="display:inline-block;"
+      title="Cerrar sesión"
+    )
+      //- En POST mandamos el token como body (sin cookies)
+      input(type="hidden" name="token" value=token)
+      //- Si hay CSRF habilitado, lo incluimos como hidden
+      if csrf_token
+        input(type="hidden" name="csrf_token" value=csrf_token)
+      //- Botón de enviar
+      button(
+        type="submit"
+        style="background:#ef4444; color:white; padding:0.75rem 1rem; border-radius:8px; border:none; cursor:pointer;"
+      ) ⏻  Logout
+
+  //- Separador visual
+  hr
+
+  //- Texto breve de ayuda
+  p(style="color:#64748b;")
+    | Consejo: los enlaces GET llevan el token en la URL. Los formularios POST lo envían como campo oculto.
+

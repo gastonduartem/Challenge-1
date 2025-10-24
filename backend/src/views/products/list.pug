@@ -1,0 +1,117 @@
+//- LISTADO DE PRODUCTOS
+//- Renderizado por productController.list_products
+//- Muestra todos los productos y ofrece acciones CRUD
+//- Heredamos el layout principal (header, estilos, etc.)
+extends ../layout                     
+
+block content
+  //- Título general
+  h2(style="margin-bottom: 1rem;") 🛍️ Listado de productos
+
+  //- Enlace al formulario de nuevo producto
+  //- El token se pasa por query (?token=...) para mantener la sesión sin cookies
+  a(
+    href=`/products/new?token=${token}`
+    style="background: #000; color: white; padding: 0.5rem 1rem; border-radius: 5px; text-decoration: none;"
+  )
+    | ➕ Agregar producto
+
+  //- Separador visual
+  hr
+
+  //- Si no hay productos en la base, mostramos un mensaje
+  if products.length === 0
+    p(style="margin-top: 2rem; font-style: italic; color: gray;")
+      | No hay productos cargados todavía.
+  else
+    //- Tabla de productos
+    table(border="1" cellspacing="0" cellpadding="8" style="margin-top: 1rem; border-collapse: collapse; width: 100%;")
+      thead(style="background: #f3f3f3;")
+        tr
+          th Nombre
+          th Descripción
+          th Precio (Gs)
+          th Stock
+          th Activo
+          th Imagen
+          th Acciones
+
+      tbody
+        each p in products
+          tr
+            //- Nombre
+            td #{p.name}
+
+            //- Descripción
+            td #{p.description}
+
+            //- Precio
+            td #{p.price.toLocaleString('es-PY')}
+
+            //- Stock
+            td #{p.stock}
+
+            //- Estado activo (sí/no)
+            td #{p.is_active ? '✅' : '❌'}
+
+            //- Imagen (si hay)
+            td
+              if p.image_path
+                img(src=p.image_path alt="Imagen producto" style="max-width:80px; border-radius: 5px;")
+              else
+                span(style="color: gray;") Sin imagen
+
+            //- Acciones CRUD
+            td(style="display: flex; gap: 0.5rem;")
+              //- 📝 Editar producto
+              a(
+                href=`/products/${p._id}/edit?token=${token}`
+                style="background: #007bff; color: white; padding: 0.3rem 0.6rem; border-radius: 4px; text-decoration: none;"
+              ) Editar
+
+              //- 🗑️ Eliminar producto — usa POST y CSRF
+              form(
+                method="POST"
+                action=`/products/${p._id}/delete`
+                style="display:inline;"
+              )
+                input(type="hidden" name="token" value=token)
+                if csrf_token
+                  input(type="hidden" name="csrf_token" value=csrf_token)
+                button(
+                  type="submit"
+                  style="background: #dc3545; color: white; border: none; padding: 0.3rem 0.6rem; border-radius: 4px;"
+                  onclick="return confirm('¿Seguro que querés eliminar este producto?');"
+                ) Eliminar
+
+              //- 📸 Subir imagen — permite actualizar solo la imagen
+              //- onchenge=this.form.submit(): Se envía automáticamente al elegir imagen
+              form(
+                method="POST"
+                action=`/products/${p._id}/image`
+                enctype="multipart/form-data"
+                style="display:inline;"
+              )
+                input(type="hidden" name="token" value=token)
+                if csrf_token
+                  input(type="hidden" name="csrf_token" value=csrf_token)
+                input(
+                  type="file"
+                  name="image"
+                  accept="image/*"
+                  style="display:none;"
+                  id=`upload_${p._id}`
+                  onchange="this.form.submit();" 
+                )
+                label(
+                  for=`upload_${p._id}`
+                  style="background: #28a745; color:white; padding: 0.3rem 0.6rem; border-radius: 4px; cursor:pointer;"
+                ) Subir imagen
+
+  //- Botón para volver al dashboard (si querés)
+  hr
+  a(
+    href=`/dashboard?token=${token}`
+    style="background: #ddd; color: black; padding: 0.5rem 1rem; border-radius: 5px; text-decoration: none;"
+  )
+    | 🔙 Volver al dashboard

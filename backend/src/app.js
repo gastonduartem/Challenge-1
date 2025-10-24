@@ -12,11 +12,14 @@ require('dotenv').config();                         // Cargar .env
 const AdminUser = require('./models/AdminUser');    // Modelo AdminUser
 const auth_routes = require('./routes/auth');       // Rutas de auth/login/dashboard
 
-// Variables de entorno (snake_case)
+// IMPORTANTE: traemos la MISMA ruta de uploads que usa Multer
+const { UPLOADS_DIR } = require('./middleware/multer'); // Carpeta absoluta compartida con Multer
+
+// Variables de entorno
 const port_backend = process.env.PORT_BACKEND || 4000;     // Puerto del admin
 const mongo_uri = process.env.MONGO_URI;                   // URI de Mongo (docker)
 const mongo_db = process.env.MONGO_DB;                     // Nombre de base
-const uploads_path = process.env.UPLOADS_PATH || path.join(__dirname, 'uploads'); // Carpeta de imágenes
+// (Ya no calculamos uploads_path por nuestra cuenta; usamos UPLOADS_DIR de multer)
 
 // Inicializamos la app
 const app = express();                            // Instancia de Express
@@ -31,7 +34,10 @@ app.use(express.json());                          // Parseo de JSON
 app.set('views', path.join(__dirname, 'views'));  // Carpeta vistas
 app.set('view engine', 'pug');                    // Motor Pug
 app.use('/public', express.static(path.join(__dirname, 'public'))); // Archivos públicos
-app.use('/uploads', express.static(uploads_path));                   // Imágenes subidas
+
+// Servimos /uploads desde la MISMA carpeta absoluta que usa Multer
+console.log('[uploads] sirviendo estáticos desde:', UPLOADS_DIR);     // Log para verificar ruta
+app.use('/uploads', express.static(UPLOADS_DIR));                     // Sirve /uploads/* desde UPLOADS_DIR
 
 // Conectar Mongo
 mongoose.set('strictQuery', true);                // Buenas prácticas
@@ -53,12 +59,23 @@ async function seed_admin_if_needed() {           // Función seeding
   console.log('[seed] admin creado:', email);            // Log de éxito
 }
 
-// Rutas
-app.use('/', auth_routes);                        // Montamos rutas de auth (login/logout/dashboard)
-
 // Ruta mínima GET raíz (informativa)
+//    La ponemos ANTES de montar rutas protegidas para que / siempre redirija a /login
 app.get('/', (req, res) => {                      // GET raíz
   res.redirect('/login');                         // Redirigimos a login
+});
+
+// Rutas públicas de autenticación (login/logout/dashboard GET/POST según diseño)
+app.use('/', auth_routes);                        // Montamos rutas de auth (login/logout/dashboard)
+
+// Rutas de productos (montadas en /products, no en /)
+// Esto evita que GET / pase por el middleware de productos
+const product_routes = require('./routes/products');   // Importamos rutas de productos
+app.use('/products', product_routes);                  // Montamos en /products
+
+// (Opcional) 404 para cualquier otra ruta no matcheada
+app.use((req, res) => {                           // Middleware final
+  return res.status(404).send('Recurso no encontrado'); // 404 simple
 });
 
 // Levantar servidor

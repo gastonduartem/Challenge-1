@@ -6,6 +6,7 @@ const AdminUser = require('../models/AdminUser');                      // Modelo
 const { create_token } = require('../services/jwt');                   // Crear JWT
 const { generate_csrf_token, verify_and_consume_csrf_token } = require('../middleware/csrf'); // CSRF
 const { require_jwt } = require('../middleware/requireJWT');           // Middleware de protección
+const {  requireToken } = require('../middleware/auth');
 
 const router = express.Router();                                       // Creamos router
 
@@ -64,6 +65,15 @@ router.post('/dashboard', require_jwt, async (req, res) => {            // Prote
     token: res.locals.rotated_token,                                    // Pasamos token rotado a la vista
     csrf_token: generate_csrf_token(),                                  // CSRF para siguientes formularios
     admin_email: res.locals.admin_claims.email                          // Mostramos email de Paula
+  });
+});
+
+// GET /dashboard (con token en query)
+router.get('/dashboard', requireToken, (req, res) => {
+  res.status(200).render('dashboard', {
+    admin_email: res.locals.admin_claims?.email || '',
+    token: res.locals.rotated_token,
+    csrf_token: generate_csrf_token()
   });
 });
 
