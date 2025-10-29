@@ -25,7 +25,16 @@ const mongo_db = process.env.MONGO_DB;                     // Nombre de base
 const app = express();                            // Instancia de Express
 
 // Middlewares globales
-app.use(helmet());                                // Headers de seguridad
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: 'cross-origin' },   // <-- clave
+  contentSecurityPolicy: {
+    useDefaults: true,
+    directives: {
+      // permite <img> desde tu propio server y data:
+      imgSrc: ["'self'", "data:"]
+    }
+  }
+}));                                // Headers de seguridad
 app.use(morgan('dev'));                           // Logs de requests
 app.use(express.urlencoded({ extended: true }));  // Parseo de forms
 app.use(express.json());                          // Parseo de JSON
@@ -72,6 +81,16 @@ app.use('/', auth_routes);                        // Montamos rutas de auth (log
 // Esto evita que GET / pase por el middleware de productos
 const product_routes = require('./routes/products');   // Importamos rutas de productos
 app.use('/products', product_routes);                  // Montamos en /products
+
+// ... ya tenés auth y products montados
+const order_routes   = require('./routes/orders');   // rutas de pedidos
+const deliver_routes = require('./routes/deliver');  // ruta de entrega
+
+app.use('/', order_routes);   // monta pedidos
+app.use('/', deliver_routes); // monta entrega
+
+
+
 
 // (Opcional) 404 para cualquier otra ruta no matcheada
 app.use((req, res) => {                           // Middleware final

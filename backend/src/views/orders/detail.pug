@@ -1,0 +1,44 @@
+//- orders/detail.pug — detalle + cambiar estado + entregar
+
+extends ../layout
+
+block content
+  h2 Pedido ##{order._id}
+
+  p Estado actual: strong #{order.status}
+  p Cliente: #{order.buyer_name} — #{order.email}
+  p Dirección: #{order.address} (#{order.igloo_sector})
+  p Total: strong $#{order.total}
+
+  h3 Items
+  ul
+    each it in order.items
+      li #{it.qty}x #{it.name} — $#{it.unit_price} (subtotal: $#{it.subtotal})
+
+  //- Cambiar estado (sin incluir "entregado" aquí)
+  if order.status !== 'en_camino'
+    h3 Cambiar estado
+    form(method="POST" action=`/orders/${order._id}/status`)
+      input(type="hidden" name="token" value=token)
+      input(type="hidden" name="csrf_token" value=csrf_token)
+      select(name="next_status")
+        if order.status === 'nuevo'
+          option(value="preparando") preparar
+          option(value="en_camino") enviar
+        if order.status === 'preparando'
+          option(value="en_camino") enviar
+      button(type="submit") Actualizar
+
+  //- Entregar (aparece solo cuando está en_camino)
+  if order.status === 'en_camino'
+    h3 Entrega
+    form(method="POST" action=`/orders/${order._id}/deliver`)
+      input(type="hidden" name="token" value=token)
+      input(type="hidden" name="csrf_token" value=csrf_token)
+      button(type="submit" style="background:#065f46;color:#fff") Marcar como entregado
+
+  //- Volver
+  form(method="POST" action="/orders" style="margin-top:1rem")
+    input(type="hidden" name="token" value=token)
+    input(type="hidden" name="csrf_token" value=csrf_token)
+    button(type="submit" style="background:#6b7280") Volver

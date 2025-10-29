@@ -1,32 +1,39 @@
 package main
 
 import (
-	"context"                                   // Para manejar cancelaciones y tiempos límite
-	"fmt"                                       // Para imprimir logs formateados
-	"html/template"                             // Motor de plantillas HTML (SSR nativo)
-	"log"                                       // Logger básico
-	"net/http"                                  // Servidor HTTP integrado en Go
-	"os"                                        // Para leer variables de entorno
-	"time"                                      // Para timeouts
+	"context"       // Para manejar cancelaciones y tiempos límite
+	"fmt"           // Para imprimir logs formateados
+	"html/template" // Motor de plantillas HTML (SSR nativo)
+	"log"           // Logger básico
+	"net/http"      // Servidor HTTP integrado en Go
+	"os"            // Para leer variables de entorno
+	"strconv"       // Para convertir strings a números
+	"strings"       // Para manipular textos
+	"time"          // Para timeouts y fechas
 
-	"github.com/joho/godotenv" 									// librería que carga variables desde el archivo .env
-	"go.mongodb.org/mongo-driver/mongo"         // Driver oficial de MongoDB para Go (cliente)
-	"go.mongodb.org/mongo-driver/mongo/options" // Opciones de conexión para el driver de MongoDB
+	"bytes"
+
+	"github.com/joho/godotenv"                   // Librería que carga variables desde el archivo .env
+	"go.mongodb.org/mongo-driver/bson"           // BSON: formato usado por MongoDB
+	"go.mongodb.org/mongo-driver/bson/primitive" // Para usar ObjectIDs de Mongo
+	"go.mongodb.org/mongo-driver/mongo"          // Driver oficial de MongoDB para Go (cliente)
+	"go.mongodb.org/mongo-driver/mongo/options"  // Opciones de conexión para el driver de MongoDB
 )
 
-// ✅ agregado: helper para obligar a que exista una variable en producción
-// Si falta, corta la ejecución con un error claro (evita caer en "localhost" por accidente)
-func mustEnv(key string) string {                     // devuelve el valor de una variable obligatoria
-	v := os.Getenv(key)                               // lee del entorno
-	if v == "" {                                      // si está vacía
-		log.Fatalf("variable de entorno faltante: %s", key) // corta con mensaje claro
+//
+// UTILIDADES Y CONFIGURACIÓN BASE
+//
+
+// mustEnv: fuerza que una variable exista (útil en producción)
+func mustEnv(key string) string {
+	v := os.Getenv(key)
+	if v == "" {
+		log.Fatalf("variable de entorno faltante: %s", key)
 	}
-	return v                                          // devuelve el valor
+	return v
 }
 
-// FUNCIÓN AUXILIAR PARA LEER VARIABLES
-// os.Getenv(key) busca la variable de entorno cuyo nombre es key
-// v := os.Getenv(key) crea una variable local v con ese valor
+// getEnv: lee una variable del entorno, con valor por defecto si no existe
 func getEnv(key, def string) string {
 	if v := os.Getenv(key); v != "" {
 		return v
@@ -34,117 +41,396 @@ func getEnv(key, def string) string {
 	return def
 }
 
-// CONEXIÓN A MONGO
-// ctx context.Context: un contexto de ejecución, usado en Go para manejar timeouts, cancelaciones y control de procesos
-// uri string: la cadena de conexión a MongoDB
-// Devuelve dos cosas:
-// Un puntero a mongo.Client (la conexión al servidor MongoDB)
-// Un error (por si algo falla)
+// connectMongo: conecta al servidor MongoDB y verifica con ping
 func connectMongo(ctx context.Context, uri string) (*mongo.Client, error) {
-	// options.Client() crea una estructura de configuración para el cliente Mongo
-	// .ApplyURI(uri) le aplica la URI de conexión, que define a qué base y host conectarse
-	opts := options.Client().ApplyURI(uri)
-	// Se intenta establecer una conexión al servidor MongoDB usando las opciones opts y el contexto ctx
-	client, err := mongo.Connect(ctx, opts)
+	opts := options.Client().ApplyURI(uri)  // Aplica la URI (host, puerto, base, etc.)
+	client, err := mongo.Connect(ctx, opts) // Crea la conexión
 	if err != nil {
 		return nil, err
 	}
-	// Se hace un ping al servidor MongoDB, Es una forma de comprobar que la conexión realmente funciona
-	if err := client.Ping(ctx, nil); err != nil {
+	if err := client.Ping(ctx, nil); err != nil { // Verifica que el servidor responda
 		return nil, err
 	}
 	return client, nil
 }
 
-// PLANTILLA HTML (inline para test Día 1)
-var homeTemplate = template.Must(template.New("home").Parse(`<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="UTF-8">
-  <title>{{.title}}</title>
-  <style>
-    body { font-family: system-ui; background:#f9fbfd; margin:2rem; }
-    .card { background:white; padding:1.5rem; border-radius:10px; border:1px solid #e2e8f0; }
-    h1 { color:#1e293b; }
-  </style>
-</head>
-<body>
-  <div class="card">
-    <h1>{{.title}}</h1>
-    <p>SSR Go funcionando 🐹 y conexión a Mongo lista ✅</p>
-  </div>
-</body>
-</html>`))
+//
+// VARIABLES GLOBALES (COLECCIONES Y CONFIG)
+//
 
-// HANDLER RAÍZ
-// w http.ResponseWriter: el objeto para escribir la respuesta HTTP (por ejemplo, HTML, JSON, etc.)
-// r *http.Request: el objeto con los datos del pedido del cliente, como método, URL, cabeceras, cuerpo, etc
+var (
+	mongo_client   *mongo.Client
+	col_products   *mongo.Collection
+	col_orders     *mongo.Collection
+	col_deliveries *mongo.Collection
+	uploadsBase    string
+	// ✅ URL base para archivos subidos (backend Node en :4100)
+)
+
+type Product struct {
+	ID          primitive.ObjectID `bson:"_id"`
+	Name        string             `bson:"name"`
+	Price       int                `bson:"price"`
+	Description string             `bson:"description"`
+	ImagePath   string             `bson:"image_path"`
+}
+
+//
+// TEMPLATES HTML (SSR SIN JS)
+//
+
+// FuncMap para los templates (convierte ObjectID a Hex y formatea números)
+var tmplFuncs = template.FuncMap{
+	"hex":       func(id primitive.ObjectID) string { return id.Hex() },
+	"fmtNumber": func(n int) string { return fmt.Sprintf("%d", n) },
+}
+
+// Página principal: lista de productos
+var homeTemplate = template.Must(
+	template.New("home.tmpl").Funcs(tmplFuncs).ParseFiles("internal/templates/home.tmpl"),
+)
+
+// Pantalla pública con todos los pedidos activos
+var ordersBoardTemplate = template.Must(
+	template.New("orders_board.tmpl").Funcs(tmplFuncs).ParseFiles("internal/templates/orders_board.tmpl"),
+)
+
+// Estado individual de un pedido (con o sin auto-refresh)
+var orderStatusTemplate = template.Must(
+	template.New("order_status.tmpl").Funcs(tmplFuncs).ParseFiles("internal/templates/order_status.tmpl"),
+)
+
+//
+// HANDLERS HTTP
+//
+
+// Handler raíz (home)
+// Muestra la lista de productos disponibles para pedir
+// Handler raíz (home)
+// Muestra la lista de productos disponibles para pedir
 func homeHandler(w http.ResponseWriter, r *http.Request) {
-	// Este data es el contexto que se enviará al template (plantilla HTML) para que pueda renderizar dinámicamente contenido
-	data := map[string]string{"title": "Penguin Store"}
-	if err := homeTemplate.Execute(w, data); err != nil {
-		http.Error(w, "error al renderizar", http.StatusInternalServerError)
+	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
+	defer cancel()
+
+	// proyección: solo lo que necesitamos
+	cur, err := col_products.Find(
+		ctx,
+		bson.M{"is_active": true},
+		options.Find().SetProjection(bson.M{
+			"name":        1,
+			"price":       1,
+			"description": 1,
+			"image_path":  1,
+		}),
+	)
+	if err != nil {
+		http.Error(w, "error al obtener productos", http.StatusInternalServerError)
+		return
+	}
+	defer cur.Close(ctx)
+
+	var products []Product
+	if err := cur.All(ctx, &products); err != nil {
+		http.Error(w, "error al leer productos", http.StatusInternalServerError)
+		return
+	}
+
+	data := map[string]any{
+		"products":    products,
+		"uploadsBase": uploadsBase,
+		// Defaults para el bloque de “Datos del comprador”
+		"defaultName":    " ",
+		"defaultAddress": " ",
+		"defaultEmail":   " ",
+	}
+
+	// Render a un buffer para evitar “superfluous WriteHeader”
+	var buf bytes.Buffer
+	if err := homeTemplate.Execute(&buf, data); err != nil {
+		log.Printf("[tpl] home error: %v", err)
+		http.Error(w, "error al renderizar la página", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	_, _ = buf.WriteTo(w)
+}
+
+// POST /checkout
+// Crea un nuevo pedido en la colección "orders"
+func checkoutHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "solo se acepta POST", http.StatusMethodNotAllowed)
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "form inválido", http.StatusBadRequest)
+		return
+	}
+
+	// Datos del comprador (una sola vez)
+	buyer := strings.TrimSpace(r.FormValue("buyer_name"))
+	address := strings.TrimSpace(r.FormValue("address"))
+	email := strings.TrimSpace(r.FormValue("email"))
+	if buyer == "" || address == "" || email == "" {
+		http.Error(w, "completá nombre, dirección y email", http.StatusBadRequest)
+		return
+	}
+
+	// Recorremos todas las cantidades: esperan name="qty_<productID>"
+	type Item struct {
+		Name      string `bson:"name"`
+		Qty       int    `bson:"qty"`
+		UnitPrice int    `bson:"unit_price"`
+		Subtotal  int    `bson:"subtotal"`
+	}
+	var items []Item
+	total := 0
+
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+
+	for key, vals := range r.Form {
+		if !strings.HasPrefix(key, "qty_") {
+			continue
+		}
+		if len(vals) == 0 {
+			continue
+		}
+		qty, _ := strconv.Atoi(vals[0])
+		if qty <= 0 {
+			continue // 0 = no lo incluye
+		}
+
+		idHex := strings.TrimPrefix(key, "qty_")
+		oid, err := primitive.ObjectIDFromHex(idHex)
+		if err != nil {
+			continue
+		}
+
+		// Traemos el producto para obtener nombre y precio confiables
+		var p struct {
+			Name  string `bson:"name"`
+			Price int    `bson:"price"`
+		}
+		if err := col_products.FindOne(ctx, bson.M{"_id": oid}).Decode(&p); err != nil {
+			continue
+		}
+
+		sub := p.Price * qty
+		total += sub
+		items = append(items, Item{
+			Name:      p.Name,
+			Qty:       qty,
+			UnitPrice: p.Price,
+			Subtotal:  sub,
+		})
+	}
+
+	if len(items) == 0 {
+		http.Error(w, "elegí al menos un producto", http.StatusBadRequest)
+		return
+	}
+
+	order := bson.M{
+		"items":        items,
+		"total":        total,
+		"buyer_name":   buyer,
+		"address":      address,
+		"igloo_sector": "",
+		"email":        email,
+		"status":       "nuevo",
+		"created_at":   time.Now(),
+	}
+
+	if _, err := col_orders.InsertOne(ctx, order); err != nil {
+		http.Error(w, "no se pudo crear el pedido", http.StatusInternalServerError)
+		return
+	}
+
+	http.Redirect(w, r, "/orders", http.StatusSeeOther)
+}
+
+// GET /orders
+// Muestra todos los pedidos activos (que aún no fueron entregados)
+func ordersBoardHandler(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
+	defer cancel()
+
+	// Buscamos todos los pedidos activos
+	cur, err := col_orders.Find(ctx, bson.M{})
+	if err != nil {
+		http.Error(w, "error al obtener pedidos", http.StatusInternalServerError)
+		return
+	}
+	defer cur.Close(ctx)
+
+	// Estructura local para el render
+	type Item struct {
+		Name string `bson:"name"`
+		Qty  int    `bson:"qty"`
+	}
+	type Order struct {
+		ID        primitive.ObjectID `bson:"_id"`
+		BuyerName string             `bson:"buyer_name"`
+		Status    string             `bson:"status"`
+		Items     []Item             `bson:"items"`
+		ShortID   string
+	}
+
+	var orders []Order
+	if err := cur.All(ctx, &orders); err != nil {
+		http.Error(w, "error al leer pedidos", http.StatusInternalServerError)
+		return
+	}
+
+	// Creamos un ID corto visual (últimos 4 chars)
+	for i := range orders {
+		hex := orders[i].ID.Hex()
+		if len(hex) > 4 {
+			orders[i].ShortID = hex[len(hex)-4:]
+		} else {
+			orders[i].ShortID = hex
+		}
+	}
+
+	// Renderizamos la tabla pública
+	if err := ordersBoardTemplate.Execute(w, map[string]any{"orders": orders}); err != nil {
+		http.Error(w, "error al renderizar pedidos", http.StatusInternalServerError)
 	}
 }
 
-// MAIN
-func main() {
-
-	// ✅ ajustado: cargar el archivo .env SOLO si NO estamos en producción
-	// En Docker seteamos APP_ENV=production y las variables llegan por environment (compose)
-	if os.Getenv("APP_ENV") != "production" { // si no es producción, cargamos .env
-		_ = godotenv.Load()                   // carga vars desde .env para desarrollo local
+// GET /status/:id
+// Muestra el estado de un pedido individual (se auto-actualiza hasta que sea entregado)
+func orderStatusHandler(w http.ResponseWriter, r *http.Request) {
+	// Extraemos el ID del pedido desde la URL
+	if !strings.HasPrefix(r.URL.Path, "/status/") {
+		http.NotFound(w, r)
+		return
+	}
+	id_hex := strings.TrimPrefix(r.URL.Path, "/status/")
+	oid, err := primitive.ObjectIDFromHex(id_hex)
+	if err != nil {
+		http.Error(w, "ID de pedido inválido", http.StatusBadRequest)
+		return
 	}
 
-	// Leer las variables de entorno
-	port_frontend := getEnv("PORT_FRONTEND", "8080")                              // puerto HTTP (fallback 8080 en dev)
-	mongo_db := getEnv("MONGO_DB", "penguin_shop")                                // nombre de la DB (fallback en dev)
-
-	// ✅ ajustado: en producción NO usamos fallback para MONGO_URI (evita caer en localhost)
-	var mongo_uri string                                                          // declaramos la variable
-	if os.Getenv("APP_ENV") == "production" {                                     // si estamos en prod (Docker)
-		mongo_uri = mustEnv("MONGO_URI")                                          // obligamos a que exista
-	} else {                                                                      // si estamos en dev
-		mongo_uri = getEnv("MONGO_URI", "mongodb://localhost:27017/penguin_shop?replicaSet=rs0") // fallback útil en local
-	}
-
-	// ✅ agregado: log de debug temporal para ver la URI efectiva (quitar luego si querés)
-	log.Println("[debug] MONGO_URI =", mongo_uri)                                 // imprime la URI usada en runtime
-
-	// context.Background() crea un contexto base vacío
-	// context.WithTimeout(...) genera un contexto hijo que se cancela automáticamente si pasan 5 segundos
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)      // timeout 10s para handshake
-	// defer significa “ejecutá esto al final de la función”
-	// Cuando el programa termine o salga del main, se ejecuta cancel() para liberar recursos del contexto
-	// Siempre que uses un WithTimeout, debés hacer defer cancel()
+	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
 	defer cancel()
 
-	// Se intenta hacer una conexion con la base de datos
-	client, err := connectMongo(ctx, mongo_uri)
-	// Si se encuentra un error, se imprime en pantalla
+	// Primero buscamos en "orders" (activos)
+	var order bson.M
+	err = col_orders.FindOne(ctx, bson.M{"_id": oid}).Decode(&order)
+	if err == nil {
+		// Si lo encontramos activo, seguimos refrescando
+		short := oid.Hex()
+		if len(short) >= 4 {
+			short = short[len(short)-4:]
+		}
+		data := map[string]any{
+			"order_id":     id_hex,
+			"short_id":     short,
+			"status":       order["status"],
+			"items":        order["items"],
+			"total":        order["total"],
+			"buyer_name":   order["buyer_name"],
+			"address":      order["address"],
+			"email":        order["email"],
+			"auto_refresh": true,
+		}
+		if err := orderStatusTemplate.Execute(w, data); err != nil {
+			http.Error(w, "error al renderizar estado", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	// Si no está activo, lo buscamos en "deliveries" (entregado)
+	var delivered bson.M
+	err = col_deliveries.FindOne(ctx, bson.M{"order_id": oid}).Decode(&delivered)
 	if err != nil {
-		// %v: lq hacemos es en donde se coloca el %v, cambiamos por el mensaje de error
+		http.Error(w, "pedido no encontrado", http.StatusNotFound)
+		return
+	}
+
+	// Renderizamos como entregado (sin auto-refresh)
+	short := oid.Hex()
+	if len(short) >= 4 {
+		short = short[len(short)-4:]
+	}
+	data := map[string]any{
+		"order_id":     id_hex,
+		"short_id":     short,
+		"status":       "entregado",
+		"items":        delivered["items"],
+		"total":        delivered["total"],
+		"buyer_name":   delivered["buyer_name"],
+		"address":      delivered["address"],
+		"email":        delivered["email"],
+		"auto_refresh": false,
+	}
+	if err := orderStatusTemplate.Execute(w, data); err != nil {
+		http.Error(w, "error al renderizar entregado", http.StatusInternalServerError)
+	}
+}
+
+//
+// MAIN: PUNTO DE ENTRADA DEL PROGRAMA
+//
+
+func main() {
+	// Cargamos .env solo si NO estamos en producción
+	if os.Getenv("APP_ENV") != "production" {
+		_ = godotenv.Load() // carga variables de entorno desde .env
+	}
+
+	// Leemos variables de entorno
+	port_frontend := getEnv("PORT_FRONTEND", "8080") // puerto por defecto
+	mongo_db := getEnv("MONGO_DB", "penguin_shop")   // nombre DB
+
+	// ✅ URL base para archivos subidos (los sirve el backend Node en :4100)
+	uploadsBase = getEnv("UPLOADS_BASE", "http://localhost:4100")
+
+	// Si estamos en producción, forzamos que exista MONGO_URI
+	var mongo_uri string
+	if os.Getenv("APP_ENV") == "production" {
+		mongo_uri = mustEnv("MONGO_URI")
+	} else {
+		mongo_uri = getEnv("MONGO_URI", "mongodb://localhost:27017/penguin_shop?replicaSet=rs0")
+	}
+
+	log.Println("[debug] MONGO_URI =", mongo_uri) // log temporal (solo dev)
+
+	// Conectamos a Mongo
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	client, err := connectMongo(ctx, mongo_uri)
+	if err != nil {
 		log.Fatalf("[mongo] error: %v", err)
 	}
-	// Cuando el programa termine, cerrar la onexion con la base de datos para liberar todo correctamente
 	defer func() { _ = client.Disconnect(context.Background()) }()
 
 	log.Println("✅ Conexión exitosa con MongoDB:", mongo_db)
 
-	// Definimos la ruta
-	http.HandleFunc("/", homeHandler)
+	// Inicializamos las colecciones que usaremos
+	db := client.Database(mongo_db)
+	col_products = db.Collection("products")
+	col_orders = db.Collection("orders")
+	col_deliveries = db.Collection("deliveries")
 
-	// ✅ agregado (opcional): endpoint simple de salud para debug rápido
-	http.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) { // devuelve 200 OK
-		w.WriteHeader(http.StatusOK)                                          // status 200
-		_, _ = w.Write([]byte("OK"))                                         // cuerpo "OK"
+	// Definimos las rutas del servidor
+	http.HandleFunc("/", homeHandler)
+	http.HandleFunc("/checkout", checkoutHandler)
+	http.HandleFunc("/orders", ordersBoardHandler)
+	http.HandleFunc("/status/", orderStatusHandler)
+
+	// Endpoint de salud (para Docker / pruebas)
+	http.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("OK"))
 	})
 
-	// Armamos la direccion donde se va a escuchar el server
+	// Armamos la dirección de escucha y levantamos el servidor
 	addr := fmt.Sprintf(":%s", port_frontend)
-	// Imprimimos en pantalla donde se va a escuchar
 	log.Printf("[frontend] escuchando en http://localhost%s", addr)
-	// Levantamos el servidor, si encontramos algun error, logueamos el error y termina el programa
 	if err := http.ListenAndServe(addr, nil); err != nil {
 		log.Fatalf("error del servidor: %v", err)
 	}

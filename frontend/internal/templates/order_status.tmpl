@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>Estado de tu pedido</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  {{if .auto_refresh}}<meta http-equiv="refresh" content="15">{{end}}
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto; background:#f9fbfd; margin:2rem; }
+    .card { background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:1.25rem; max-width:760px; }
+    .banner { padding:.6rem .8rem; border-radius:.6rem; margin-bottom:1rem; background:#dcfce7; border:1px solid #bbf7d0; }
+    .muted { color:#6b7280; }
+    ul { margin:0; padding-left:1rem; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    {{if eq .status "entregado"}}
+      <div class="banner">✅ Pedido ENTREGADO — ¡gracias por comprar!</div>
+    {{end}}
+
+    <h1>Pedido #{{.short_id}}</h1>
+    <p class="muted">ID: {{.order_id}}</p>
+    <p><strong>Cliente:</strong> {{.buyer_name}}</p>
+    <p><strong>Estado:</strong> {{.status}}</p>
+
+    <h3>Productos</h3>
+    <ul>
+      {{range .items}}
+        <li>{{.qty}}x {{.name}} — ${{.unit_price}} (subtotal: ${{.subtotal}})</li>
+      {{end}}
+    </ul>
+
+    <p><strong>Total:</strong> ${{.total}}</p>
+
+    {{if .auto_refresh}}
+      <p class="muted">Actualizando automáticamente cada 15 segundos…</p>
+    {{else}}
+      <p class="muted">Seguimiento finalizado.</p>
+    {{end}}
+
+    <p><a href="/orders">Volver al tablero de pedidos</a></p>
+  </div>
+</body>
+</html>

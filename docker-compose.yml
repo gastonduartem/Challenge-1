@@ -34,6 +34,8 @@ services:                                                    # Sección que defi
       - PORT=4000                                            # Puerto en el que corre el backend dentro del contenedor
       - MONGO_URI=mongodb://mongo:27017/penguin_shop?replicaSet=rs0  # Conexión a Mongo por nombre de servicio
       - NODE_ENV=production                                  # Modo producción (puede cambiar a development)
+      - JWT_SECRET=superclaveultrasecreta                    # Clave secreta del JWT
+      - JWT_EXPIRES=1800                                     # Tiempo de expiración del JWT
     ports:
       - "4000:4000"                                          # Exponer backend en localhost:4000
     networks:

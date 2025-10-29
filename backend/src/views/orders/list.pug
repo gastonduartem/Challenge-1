@@ -1,0 +1,41 @@
+//- orders/list.pug — tabla con filtro
+
+extends ../layout
+
+block content
+  h2 Pedidos (admin)
+
+  form(method="POST" action="/orders" style="margin-bottom:1rem")
+    input(type="hidden" name="token" value=token)
+    input(type="hidden" name="csrf_token" value=csrf_token)
+    label(for="status") Filtrar:
+    select(name="status" id="status")
+      option(value="" selected=(!status_selected)) (todos)
+      option(value="nuevo" selected=(status_selected==='nuevo')) nuevo
+      option(value="preparando" selected=(status_selected==='preparando')) preparando
+      option(value="en_camino" selected=(status_selected==='en_camino')) en_camino
+    button(type="submit") Aplicar
+
+  if orders.length === 0
+    p No hay pedidos con ese filtro.
+  else
+    table(border="1" cellpadding="8" cellspacing="0")
+      thead
+        tr
+          th Fecha
+          th Estado
+          th Cliente
+          th Total
+          th Acciones
+      tbody
+        each o in orders
+          tr
+            td #{new Date(o.created_at).toLocaleString()}
+            td #{o.status}
+            td #{o.buyer_name} (#{o.email})
+            td $#{o.total}
+            td
+              form(method="POST" action=`/orders/${o._id}` style="display:inline-block")
+                input(type="hidden" name="token" value=token)
+                input(type="hidden" name="csrf_token" value=csrf_token)
+                button(type="submit") Ver

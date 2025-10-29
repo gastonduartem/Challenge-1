@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>Pedidos en curso</title>
+  <style>
+    body{font-family:system-ui,Segoe UI,Roboto;background:#f8fafc;margin:2rem;}
+    table{border-collapse:collapse;width:100%;background:#fff}
+    th,td{border:1px solid #e5e7eb;padding:.7rem;text-align:left}
+    thead{background:#f3f4f6}
+    .muted{color:#6b7280}
+    .pill{background:#eef2ff;color:#3730a3;padding:.2rem .5rem;border-radius:999px;font-size:.9rem}
+  </style>
+</head>
+<body>
+  <h1>Pedidos en curso</h1>
+  <table>
+    <thead>
+      <tr>
+        <th>N° Pedido</th>
+        <th>Cliente</th>
+        <th>Productos</th>
+        <th>Estado</th>
+      </tr>
+    </thead>
+    <tbody>
+    {{range .orders}}
+      <tr>
+        <td><span class="pill">#{{.ShortID}}</span></td>
+        <td>{{.BuyerName}}</td>
+        <td>
+          {{range .Items}}
+            • {{.Name}} x {{.Qty}}<br>
+          {{end}}
+        </td>
+        <td>{{.Status}}</td>
+      </tr>
+    {{else}}
+      <tr><td colspan="4" class="muted">No hay pedidos todavía.</td></tr>
+    {{end}}
+    </tbody>
+  </table>
+</body>
+</html>
