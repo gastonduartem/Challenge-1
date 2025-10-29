@@ -1,4 +1,4 @@
-module penguin-shop/frontend
+module github.com/gastonduartem/Challenge-1/frontend
 
 go 1.22
 
