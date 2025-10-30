@@ -1,44 +1,52 @@
-//- orders/detail.pug — detalle + cambiar estado + entregar
+//- orders/detail.pug — detalle completo con control de estado
 
 extends ../layout
 
 block content
-  h2 Pedido ##{order._id}
+  h2 Pedido ##{order._id.toString().slice(-4)} 🧾
 
-  p Estado actual: strong #{order.status}
-  p Cliente: #{order.buyer_name} — #{order.email}
-  p Dirección: #{order.address} (#{order.igloo_sector})
-  p Total: strong $#{order.total}
+  //- Información del cliente
+  h3 Cliente
+  ul
+    li strong Nombre: #{order.buyer_name}
+    li strong Dirección: #{order.address}
+    li strong Email: #{order.email}
+    li strong Sector: #{order.igloo_sector}
 
-  h3 Items
+  //- Detalle de productos
+  h3 Productos
   ul
     each it in order.items
       li #{it.qty}x #{it.name} — $#{it.unit_price} (subtotal: $#{it.subtotal})
 
-  //- Cambiar estado (sin incluir "entregado" aquí)
+  p(style="margin-top:1rem") strong Total: $#{order.total}
+
+  //- Estado actual y cambio de estado
+  h3 Estado actual
+  p(style="font-weight:bold") #{order.status}
+
   if order.status !== 'en_camino'
-    h3 Cambiar estado
-    form(method="POST" action=`/orders/${order._id}/status`)
+    form(method="POST" action=`/orders/${order._id}/status` style="margin-top:1rem")
       input(type="hidden" name="token" value=token)
       input(type="hidden" name="csrf_token" value=csrf_token)
-      select(name="next_status")
+      label(for="next_status") Cambiar a:
+      select(name="next_status" required)
         if order.status === 'nuevo'
-          option(value="preparando") preparar
-          option(value="en_camino") enviar
+          option(value="preparando") preparando
+          option(value="en_camino") en camino
         if order.status === 'preparando'
-          option(value="en_camino") enviar
-      button(type="submit") Actualizar
+          option(value="en_camino") en camino
+      button(type="submit") Actualizar estado
 
-  //- Entregar (aparece solo cuando está en_camino)
+  //- Marcar como entregado
   if order.status === 'en_camino'
-    h3 Entrega
-    form(method="POST" action=`/orders/${order._id}/deliver`)
+    form(method="POST" action=`/orders/${order._id}/deliver` style="margin-top:1.5rem")
       input(type="hidden" name="token" value=token)
       input(type="hidden" name="csrf_token" value=csrf_token)
-      button(type="submit" style="background:#065f46;color:#fff") Marcar como entregado
+      button(type="submit" style="background:#065f46; color:white") Marcar como entregado
 
-  //- Volver
-  form(method="POST" action="/orders" style="margin-top:1rem")
+  //- Volver al listado
+  form(method="POST" action="/orders" style="margin-top:2rem")
     input(type="hidden" name="token" value=token)
     input(type="hidden" name="csrf_token" value=csrf_token)
     button(type="submit" style="background:#6b7280") Volver

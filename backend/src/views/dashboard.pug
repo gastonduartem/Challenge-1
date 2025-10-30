@@ -1,71 +1,16 @@
+//- dashboard.pug — bienvenida + accesos
 
-//- DASHBOARD — pantalla principal del admin
-//- Muestra saludo + accesos a Productos y Logout
+extends layout
 
-
-//- Heredamos layout base (header, estilos)
-extends ./layout                               
-
-//- Contenido principal del dashboard
 block content
-  //- Título de bienvenida
-  h2(style="margin-bottom: 1rem;") Hola, #{admin_email || 'admin'} 👋
+  h2(style="margin-bottom:1rem") Bienvenido, #{title}
+  p(style="margin-bottom:2rem") Desde aquí podés gestionar tus productos y los pedidos de la tienda.
 
-  //- Tarjeta simple con acciones
-  div(style="display:flex; gap:1rem; flex-wrap:wrap;")
-
-    //- Acción: Ir a productos (GET con token en query string)
-
-    //- Pasamos el token por query (sin cookies)
-    a(
-      href=`/products?token=${token}`         
-      style="display:inline-block; background:#0ea5e9; color:white; padding:0.75rem 1rem; border-radius:8px; text-decoration:none;"
-      title="Ver y administrar productos"
-    ) 🛍️  Productos
-
-
-    //- Acción: Agregar producto directo (GET al form de alta)
-    //- (opcional, por comodidad) — también con token en query
-
-    //- Abre el form de creación
-    a(
-      href=`/products/new?token=${token}`     
-      style="display:inline-block; background:#10b981; color:white; padding:0.75rem 1rem; border-radius:8px; text-decoration:none;"
-      title="Crear un nuevo producto"
-    ) ➕  Nuevo producto
-
-
-    //- Acción: Logout (POST-only) — con token/CSRF ocultos
-
-    form(
-      method="POST"
-      action="/logout"
-      style="display:inline-block;"
-      title="Cerrar sesión"
-    )
-      //- En POST mandamos el token como body (sin cookies)
-      input(type="hidden" name="token" value=token)
-      //- Si hay CSRF habilitado, lo incluimos como hidden
-      if csrf_token
-        input(type="hidden" name="csrf_token" value=csrf_token)
-      //- Botón de enviar
-      button(
-        type="submit"
-        style="background:#ef4444; color:white; padding:0.75rem 1rem; border-radius:8px; border:none; cursor:pointer;"
-      ) ⏻  Logout
-
-      // Dentro de block content, junto a los otros botones
-      a(
-        href="http://localhost:8081/orders" 
-        target="_blank" 
-        style="display:inline-block;padding:.8rem 1.2rem;border-radius:.75rem;background:#6b7280;color:#fff;text-decoration:none;margin-left:1rem"
-        ) 📋 Pedidos (público)
-
-
-  //- Separador visual
-  hr
-
-  //- Texto breve de ayuda
-  p(style="color:#64748b;")
-    | Consejo: los enlaces GET llevan el token en la URL. Los formularios POST lo envían como campo oculto.
+  .grid(style="display:grid; gap:1rem; grid-template-columns:repeat(auto-fit,minmax(200px,1fr));")
+    a(href="/products?token=${token}" style="display:block; background:white; padding:1rem; border-radius:8px; text-align:center; text-decoration:none; color:#111827; box-shadow:0 2px 6px rgba(0,0,0,.05);")
+      h3 Productos
+      p(style="color:#6b7280; font-size:.9rem") Agregar, editar o eliminar artículos de la tienda.
+    a(href="/orders?token=${token}" style="display:block; background:white; padding:1rem; border-radius:8px; text-align:center; text-decoration:none; color:#111827; box-shadow:0 2px 6px rgba(0,0,0,.05);")
+      h3 Pedidos
+      p(style="color:#6b7280; font-size:.9rem") Ver pedidos activos, cambiar estado y marcar entregas.
 

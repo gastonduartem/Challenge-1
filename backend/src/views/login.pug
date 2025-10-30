@@ -1,33 +1,25 @@
-extends layout
-//- DEBE ser la primera línea del archivo
+//- login.pug — formulario de login SSR (sin JS)
 
-//- login.pug — Formulario de login con CSRF y sin JS
-
-//- Define el bloque 'content'
-block content
-  //- Si viene un mensaje de error
-  if error_msg
-    //- Mostramos mensaje en rojo (interpolación)
-    p(style="color:#b91c1c") #{error_msg}
-
-  //- Formulario que hace POST a /login
-  form(method="POST" action="/login")
-    //-- Token CSRF obligatorio
-    //- Token CSRF
-    input(type="hidden" name="csrf_token" value=csrf_token)
-
-    //- Email
-    //- Label del email
-    label(for="email") Email
-    //- Input email
-    input(type="email" id="email" name="email" required placeholder="paula@penguin.com")
-
-    //- Password
-    //- Label de password
-    label(for="password") Password
-    //- Input password
-    input(type="password" id="password" name="password" required placeholder="********")
-
-    //- Botón
-    //- Botón de enviar
-    button(type="submit") Ingresar
+doctype html
+html(lang="es")
+  head
+    meta(charset="utf-8")
+    meta(name="viewport" content="width=device-width, initial-scale=1")
+    title Login Penguin Shop
+    style.
+      body { font-family: system-ui, -apple-system, Segoe UI, Roboto; background:#f1f5f9; display:flex; align-items:center; justify-content:center; height:100vh; }
+      .card { background:white; padding:2rem; border-radius:10px; box-shadow:0 2px 10px rgba(0,0,0,.1); width:320px; }
+      input, button { width:100%; padding:.6rem; border-radius:6px; border:1px solid #e5e7eb; margin-top:.6rem; }
+      button { background:#0f172a; color:white; border:none; }
+  body
+    .card
+      h2(style="text-align:center; margin-bottom:1rem") Iniciar sesión
+      if error
+        p(style="color:red; text-align:center") #{error}
+      form(method="POST" action="/login")
+        input(type="hidden" name="csrf_token" value=csrf_token)
+        label(for="email") Email
+        input(type="email" name="email" required placeholder="ejemplo@penguin.com")
+        label(for="password") Contraseña
+        input(type="password" name="password" required placeholder="••••••••")
+        button(type="submit") Ingresar
