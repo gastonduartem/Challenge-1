@@ -11,7 +11,6 @@ import (
 
 	"github.com/gastonduartem/Challenge-1/frontend/internal/db"
 	"github.com/gastonduartem/Challenge-1/frontend/internal/handlers"
-
 	"github.com/joho/godotenv"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
@@ -23,6 +22,7 @@ func mustEnv(key string) string {
 	}
 	return v
 }
+
 func getEnv(key, def string) string {
 	if v := os.Getenv(key); v != "" {
 		return v
@@ -31,7 +31,7 @@ func getEnv(key, def string) string {
 }
 
 func main() {
-	// .env en dev
+	// Cargar .env en desarrollo
 	if os.Getenv("APP_ENV") != "production" {
 		_ = godotenv.Load()
 	}
@@ -78,7 +78,7 @@ func main() {
 		},
 	}
 
-	// Parseo de templates (una sola vez)
+	// Parseo de templates (una sola vez, ANTES de usarlos)
 	tmpls := template.Must(template.New("").Funcs(funcs).ParseFiles(
 		"internal/templates/home.tmpl",
 		"internal/templates/orders_board.tmpl",
@@ -88,10 +88,16 @@ func main() {
 	ordersTmpl := tmpls.Lookup("orders_board.tmpl")
 	statusTmpl := tmpls.Lookup("order_status.tmpl")
 
+	// Inyección de dependencias para /orders (usa el template ya parseado)
+	deps := &handlers.OrdersDeps{
+		OrdersCol: colOrders,
+		Tpl:       ordersTmpl,
+	}
+
 	// Rutas
 	http.HandleFunc("/", handlers.NewHome(colProducts, uploadsBase, homeTmpl))
 	http.HandleFunc("/checkout", handlers.NewCheckout(colProducts, colOrders))
-	http.HandleFunc("/orders", handlers.NewOrders(colOrders, ordersTmpl))
+	http.HandleFunc("/orders", deps.OrdersBoard) // ← ÚNICA definición de /orders
 	http.HandleFunc("/status/", handlers.NewStatus(colOrders, colDeliveries, statusTmpl))
 
 	// Health
