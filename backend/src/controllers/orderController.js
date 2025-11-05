@@ -1,50 +1,65 @@
-// orderController.js — listar, detalle, cambiar estado
+// controllers/orderController.js — listar, detalle, cambiar estado
 
-const Order = require('../models/Order'); // modelo de pedidos
-const { generate_csrf_token, verify_and_consume_csrf_token } = require('../middleware/csrf'); // CSRF
+const Order = require('../models/Order');
+const { generate_csrf_token, verify_and_consume_csrf_token } = require('../middleware/csrf');
 
-// POST /orders — listado con filtro opcional
+// GET/POST /orders — listado de pedidos
 async function list_orders(req, res) {
-  const { status } = req.body;                       // filtro opcional
-  const query = status ? { status } : {};            // armamos query
-  const orders = await Order.find(query).sort({ created_at: -1 }); // ordenamos
-  return res.status(200).render('orders/list', {     // render SSR
-    token: res.locals.rotated_token,                 // JWT rotado
-    csrf_token: generate_csrf_token(),               // CSRF
-    status_selected: status || '',                   // estado elegido (UI)
-    orders                                           // data
+  // Acepta filtro por query o body
+  const status = (req.query?.status ?? req.body?.status ?? '').trim();
+  const query = status ? { status } : {};
+
+  const orders = await Order.find(query).sort({ created_at: -1 });
+
+  return res.status(200).render('orders/list', {
+    token: res.locals.rotated_token,
+    csrf_token: generate_csrf_token(),
+    admin_email: res.locals.admin_claims?.email || '',
+    status_selected: status,
+    orders,
+    auto_refresh_list: true // si tu vista lo usa para <meta refresh>
   });
 }
 
-// POST /orders/:id — detalle
+// GET/POST /orders/:id — detalle de pedido
 async function order_detail(req, res) {
-  const { id } = req.params;                         // id desde ruta
-  const order = await Order.findById(id);            // buscamos
-  if (!order) return res.status(404).send('Pedido no encontrado'); // 404
-  return res.status(200).render('orders/detail', {   // render detalle
-    token: res.locals.rotated_token,                 // JWT rotado
-    csrf_token: generate_csrf_token(),               // CSRF
-    order                                            // data
+  const { id } = req.params;
+  const order = await Order.findById(id);
+  if (!order) return res.status(404).send('Pedido no encontrado');
+
+  const auto_refresh = order.status === 'en_camino';
+
+  return res.status(200).render('orders/detail', {
+    token: res.locals.rotated_token,
+    csrf_token: generate_csrf_token(),
+    admin_email: res.locals.admin_claims?.email || '',
+    order,
+    auto_refresh
   });
 }
 
-// POST /orders/:id/status — cambiar estado (sin entregar)
+// POST /orders/:id/status — cambiar estado (PRG)
 async function change_status(req, res) {
-  const { id } = req.params;                         // id pedido
-  const { csrf_token, next_status } = req.body;      // body
+  const { id } = req.params;
+  const { csrf_token, next_status } = req.body;
 
-  if (!verify_and_consume_csrf_token(csrf_token))    // valida CSRF
-    return res.status(403).send('CSRF inválido');    // error
+  if (!verify_and_consume_csrf_token(csrf_token))
+    return res.status(403).send('CSRF inválido');
 
-  const allowed = ['nuevo','preparando','en_camino']; // estados permitidos
-  if (!allowed.includes(next_status))                // valida estado
+  const allowed = ['nuevo','preparando','en_camino'];
+  if (!allowed.includes(next_status))
     return res.status(400).send('Estado no permitido');
 
-  const updated = await Order.findByIdAndUpdate(id, { status: next_status }, { new: true }); // update
-  if (!updated) return res.status(404).send('Pedido no encontrado'); // 404
+  const updated = await Order.findByIdAndUpdate(
+    id,
+    { status: next_status },
+    { new: true }
+  );
+  if (!updated) return res.status(404).send('Pedido no encontrado');
 
-  req.params.id = id;                                // reusamos detalle
-  return order_detail(req, res);                     // render
+  // PRG: redirigimos al detalle GET con el token rotado
+  return res.status(303).redirect(`/orders/${id}?token=${res.locals.rotated_token}`);
 }
+
 
 module.exports = { list_orders, order_detail, change_status };

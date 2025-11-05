@@ -2,24 +2,49 @@
 
 extends ../layout
 
+//- 👇 bloque para permitir auto-refresh (controlado por controller)
+block head
+  if auto_refresh
+    //- refresca cada 7 segundos
+    meta(http-equiv="refresh" content="7")  
+
 block content
-  h2 Pedido ##{order._id.toString().slice(-4)} 🧾
+  h2 Pedido ##{order._id.toString().slice(-4)}
+
+  //- Atajo visual para navegación
+  div(style="margin:.5rem 0 1rem 0; display:flex; gap:.5rem; flex-wrap:wrap;")
+    //- Volver al listado (POST para mantener tu flujo)
+    form(method="POST" action="/orders")
+      input(type="hidden" name="token" value=token)
+      input(type="hidden" name="csrf_token" value=csrf_token)
+      button(type="submit" style="background:#6b7280") Volver al listado
+    
 
   //- Información del cliente
   h3 Cliente
   ul
-    li strong Nombre: #{order.buyer_name}
-    li strong Dirección: #{order.address}
-    li strong Email: #{order.email}
-    li strong Sector: #{order.igloo_sector}
+    li
+      strong Nombre:
+      |  #{order.buyer_name}
+    li
+      strong Dirección:
+      |  #{order.address}
+    li
+      strong Email:
+      |  #{order.email}
+    li
+      strong Sector:
+      |  #{order.igloo_sector || ''}
 
   //- Detalle de productos
   h3 Productos
   ul
     each it in order.items
-      li #{it.qty}x #{it.name} — $#{it.unit_price} (subtotal: $#{it.subtotal})
+      li #{it.qty}x #{it.name} — #{it.unit_price.toLocaleString('es-PY')} Gs (subtotal: #{it.subtotal.toLocaleString('es-PY')} Gs)
 
-  p(style="margin-top:1rem") strong Total: $#{order.total}
+  p(style="margin-top:1rem")
+    strong Total:
+    |  #{order.total.toLocaleString('es-PY')} Gs
 
   //- Estado actual y cambio de estado
   h3 Estado actual
@@ -44,9 +69,3 @@ block content
       input(type="hidden" name="token" value=token)
       input(type="hidden" name="csrf_token" value=csrf_token)
       button(type="submit" style="background:#065f46; color:white") Marcar como entregado
-
-  //- Volver al listado
-  form(method="POST" action="/orders" style="margin-top:2rem")
-    input(type="hidden" name="token" value=token)
-    input(type="hidden" name="csrf_token" value=csrf_token)
-    button(type="submit" style="background:#6b7280") Volver

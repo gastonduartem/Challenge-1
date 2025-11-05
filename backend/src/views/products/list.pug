@@ -6,7 +6,7 @@ extends ../layout
 
 block content
   //- Título general
-  h2(style="margin-bottom: 1rem;") 🛍️ Listado de productos
+  h2(style="margin-bottom: 1rem;") Listado de productos
 
   //- Enlace al formulario de nuevo producto
   //- El token se pasa por query (?token=...) para mantener la sesión sin cookies
@@ -14,7 +14,7 @@ block content
     href=`/products/new?token=${token}`
     style="background: #000; color: white; padding: 0.5rem 1rem; border-radius: 5px; text-decoration: none;"
   )
-    | ➕ Agregar producto
+    | Agregar producto
 
   //- Separador visual
   hr
@@ -114,4 +114,4 @@ block content
     href=`/dashboard?token=${token}`
     style="background: #ddd; color: black; padding: 0.5rem 1rem; border-radius: 5px; text-decoration: none;"
   )
-    | 🔙 Volver al dashboard
+    | Volver al dashboard

@@ -11,10 +11,11 @@ type Product struct {
 }
 
 type Item struct {
-	Name      string `bson:"name"`
-	Qty       int    `bson:"qty"`
-	UnitPrice int    `bson:"unit_price"`
-	Subtotal  int    `bson:"subtotal"`
+	ProductID primitive.ObjectID `bson:"product_id,omitempty"`
+	Name      string             `bson:"name"`
+	Qty       int                `bson:"qty"`
+	UnitPrice int                `bson:"unit_price"`
+	Subtotal  int                `bson:"subtotal"`
 }
 
 type Order struct {

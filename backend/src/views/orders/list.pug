@@ -5,6 +5,12 @@ extends ../layout
 block content
   h2(style="margin-bottom:1rem") Pedidos activos
 
+  // ← Botón para volver al Dashboard (conserva el token actual)
+  a(
+    href=`/dashboard?token=${token}`
+    style="margin-bottom:1rem; display:inline-block; background:#1e293b; color:white; padding:.5rem 1rem; border-radius:6px; text-decoration:none;"
+  ) ← Volver al Dashboard
+
   if orders.length === 0
     p No hay pedidos pendientes.
   else
@@ -19,11 +25,13 @@ block content
       tbody
         each o in orders
           tr
-            td #{o._id.toString().slice(-4)} //- Últimos 4 caracteres del ObjectID
+            //- Últimos 4 caracteres del ObjectID
+            td #{o._id.toString().slice(-4)} 
             td #{o.buyer_name}
-            td $#{o.total}
+            td #{o.total.toLocaleString('es-PY')} Gs
             td #{o.status}
             td
+              //- Mantenemos tu navegación por POST hacia el detalle
               form(method="POST" action=`/orders/${o._id}`)
                 input(type="hidden" name="token" value=token)
                 input(type="hidden" name="csrf_token" value=csrf_token)

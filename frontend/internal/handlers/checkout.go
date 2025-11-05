@@ -48,12 +48,14 @@ func NewCheckout(colProducts, colOrders *mongo.Collection) http.HandlerFunc {
 			if qty <= 0 {
 				continue
 			}
+
 			idHex := strings.TrimPrefix(key, "qty_")
 			oid, err := primitive.ObjectIDFromHex(idHex)
 			if err != nil {
 				continue
 			}
 
+			// Traemos nombre y precio confiables desde la DB
 			var p struct {
 				Name  string `bson:"name"`
 				Price int    `bson:"price"`
@@ -64,7 +66,10 @@ func NewCheckout(colProducts, colOrders *mongo.Collection) http.HandlerFunc {
 
 			sub := p.Price * qty
 			total += sub
+
+			// ✅ Guardamos también el ID del producto que pide el backend del admin
 			items = append(items, models.Item{
+				ProductID: oid,
 				Name:      p.Name,
 				Qty:       qty,
 				UnitPrice: p.Price,

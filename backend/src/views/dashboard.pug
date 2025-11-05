@@ -1,5 +1,4 @@
 //- dashboard.pug — bienvenida + accesos
-
 extends layout
 
 block content
@@ -7,10 +6,11 @@ block content
   p(style="margin-bottom:2rem") Desde aquí podés gestionar tus productos y los pedidos de la tienda.
 
   .grid(style="display:grid; gap:1rem; grid-template-columns:repeat(auto-fit,minmax(200px,1fr));")
-    a(href="/products?token=${token}" style="display:block; background:white; padding:1rem; border-radius:8px; text-align:center; text-decoration:none; color:#111827; box-shadow:0 2px 6px rgba(0,0,0,.05);")
+    // ⚠️ Antes: href="/products?token=${token}" (literal)
+    // ✅ Usar backticks o concatenar
+    a(href=`/products?token=${token}` style="display:block; background:white; padding:1rem; border-radius:8px; text-align:center; text-decoration:none; color:#111827; box-shadow:0 2px 6px rgba(0,0,0,.05);")
       h3 Productos
       p(style="color:#6b7280; font-size:.9rem") Agregar, editar o eliminar artículos de la tienda.
-    a(href="/orders?token=${token}" style="display:block; background:white; padding:1rem; border-radius:8px; text-align:center; text-decoration:none; color:#111827; box-shadow:0 2px 6px rgba(0,0,0,.05);")
+    a(href=`/orders?token=${token}` style="display:block; background:white; padding:1rem; border-radius:8px; text-align:center; text-decoration:none; color:#111827; box-shadow:0 2px 6px rgba(0,0,0,.05);")
       h3 Pedidos
       p(style="color:#6b7280; font-size:.9rem") Ver pedidos activos, cambiar estado y marcar entregas.
-
