@@ -17,7 +17,7 @@ import (
 // Inyecta dependencias desde main
 type OrdersDeps struct {
 	OrdersCol *mongo.Collection
-	Tpl       *template.Template // tu template ya parseado: orders_board.tmpl
+	Tpl       *template.Template // template ya parseado (incluye orders_board.tmpl)
 }
 
 func (d *OrdersDeps) OrdersBoard(w http.ResponseWriter, r *http.Request) {
@@ -57,15 +57,21 @@ func (d *OrdersDeps) OrdersBoard(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// 👉 Renderiza a buffer: si falla, todavía no escribiste nada
+	// Estructura con campo exportado que la plantilla espera: .Orders
+	data := struct {
+		Orders []Order
+	}{
+		Orders: orders,
+	}
+
 	var buf bytes.Buffer
-	if err := d.Tpl.Execute(&buf, map[string]any{"orders": orders}); err != nil {
+	// Mejor usar ExecuteTemplate con el nombre exacto del archivo
+	if err := d.Tpl.ExecuteTemplate(&buf, "orders_board.tmpl", data); err != nil {
 		log.Printf("[tpl] orders_board error: %v", err)
 		http.Error(w, "error al renderizar pedidos", http.StatusInternalServerError)
 		return
 	}
 
-	// 👉 Solo acá escribís headers y cuerpo
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	_, _ = buf.WriteTo(w)
 }

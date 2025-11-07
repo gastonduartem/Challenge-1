@@ -2,44 +2,39 @@
 <html lang="es">
 <head>
   <meta charset="utf-8">
-  <title>Estado de tu pedido</title>
+  <title>Estado del pedido #{{.ShortID}}</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  {{if .auto_refresh}}<meta http-equiv="refresh" content="15">{{end}}
+  {{if .AutoRefresh}}<meta http-equiv="refresh" content="15">{{end}}
   <style>
-    body { font-family: system-ui, -apple-system, Segoe UI, Roboto; background:#f9fbfd; margin:2rem; }
-    .card { background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:1.25rem; max-width:760px; }
-    .banner { padding:.6rem .8rem; border-radius:.6rem; margin-bottom:1rem; background:#dcfce7; border:1px solid #bbf7d0; }
-    .muted { color:#6b7280; }
-    ul { margin:0; padding-left:1rem; }
+    body { font-family:'Inter',system-ui,sans-serif; background:#f8fafc; display:flex; align-items:center; justify-content:center; min-height:100vh; margin:0; }
+    .card { background:white; border-radius:12px; box-shadow:0 2px 10px rgba(0,0,0,0.05); padding:2rem; max-width:480px; width:100%; }
+    h1 { color:#1e3a8a; margin-top:0; }
+    ul { padding-left:1rem; color:#374151; }
+    .status { display:inline-block; margin:.5rem 0; padding:.4rem .7rem; border-radius:6px; font-weight:600; text-transform:capitalize; }
+    .nuevo { background:#3b82f6; color:white; }
+    .preparando { background:#f59e0b; color:white; }
+    .en_camino { background:#10b981; color:white; }
+    .entregado { background:#16a34a; color:white; }
   </style>
 </head>
 <body>
   <div class="card">
-    {{if eq .status "entregado"}}
-      <div class="banner">✅ Pedido ENTREGADO — ¡gracias por comprar!</div>
-    {{end}}
-
-    <h1>Pedido #{{.short_id}}</h1>
-    <p class="muted">ID: {{.order_id}}</p>
-    <p><strong>Cliente:</strong> {{.buyer_name}}</p>
-    <p><strong>Estado:</strong> {{.status}}</p>
-
+    <h1>Pedido #{{.ShortID}}</h1>
+    <p><strong>Cliente:</strong> {{.BuyerName}}</p>
+    <p><strong>Estado:</strong> <span class="status {{.Status}}">{{.Status}}</span></p>
     <h3>Productos</h3>
     <ul>
-      {{range .items}}
-        <li>{{.qty}}x {{.name}} — ${{.unit_price}} (subtotal: ${{.subtotal}})</li>
+      {{range .Items}}
+        <li>{{.Qty}}x {{.Name}} — Gs {{.UnitPrice}}</li>
       {{end}}
     </ul>
-
-    <p><strong>Total:</strong> ${{.total}}</p>
-
-    {{if .auto_refresh}}
-      <p class="muted">Actualizando automáticamente cada 15 segundos…</p>
+    <p><strong>Total:</strong> Gs {{.Total}}</p>
+    {{if .AutoRefresh}}
+      <p style="color:#6b7280;">Actualizando cada 15 segundos...</p>
     {{else}}
-      <p class="muted">Seguimiento finalizado.</p>
+      <p style="color:#16a34a; font-weight:600;">Pedido entregado. ¡Gracias por comprar!</p>
     {{end}}
-
-    <p><a href="/orders">Volver al tablero de pedidos</a></p>
+    <a href="/orders" style="display:inline-block;margin-top:1rem;color:#2563eb;">← Volver al tablero</a>
   </div>
 </body>
 </html>

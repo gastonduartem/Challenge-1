@@ -2,43 +2,58 @@
 <html lang="es">
 <head>
   <meta charset="utf-8">
-  <title>Pedidos en curso</title>
+  <title>Pedidos en curso 🧊</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="refresh" content="15">
   <style>
-    body{font-family:system-ui,Segoe UI,Roboto;background:#f8fafc;margin:2rem;}
-    table{border-collapse:collapse;width:100%;background:#fff}
-    th,td{border:1px solid #e5e7eb;padding:.7rem;text-align:left}
-    thead{background:#f3f4f6}
-    .muted{color:#6b7280}
-    .pill{background:#eef2ff;color:#3730a3;padding:.2rem .5rem;border-radius:999px;font-size:.9rem}
+    body { font-family: 'Inter', system-ui, sans-serif; background:#f9fafb; margin:2rem; }
+    h1 { text-align:center; color:#1e293b; margin-bottom:1.5rem; }
+    table { width:100%; border-collapse:collapse; background:white; box-shadow:0 2px 10px rgba(0,0,0,0.05); border-radius:10px; overflow:hidden; }
+    th, td { padding:1rem; text-align:left; border-bottom:1px solid #f1f5f9; vertical-align:top; }
+    th { background:#eff6ff; color:#1e40af; font-weight:600; }
+    tr:hover { background:#f8fafc; }
+    .status { padding:.3rem .6rem; border-radius:6px; color:#fff; font-weight:600; font-size:.85rem; text-transform:capitalize; }
+    .nuevo { background:#3b82f6; }
+    .preparando { background:#f59e0b; }
+    .en_camino { background:#10b981; }
   </style>
 </head>
 <body>
   <h1>Pedidos en curso</h1>
-  <table>
-    <thead>
-      <tr>
-        <th>N° Pedido</th>
-        <th>Cliente</th>
-        <th>Productos</th>
-        <th>Estado</th>
-      </tr>
-    </thead>
-    <tbody>
-    {{range .orders}}
-      <tr>
-        <td><span class="pill">#{{.ShortID}}</span></td>
-        <td>{{.BuyerName}}</td>
-        <td>
-          {{range .Items}}
-            • {{.Name}} x {{.Qty}}<br>
+
+  {{if .Orders}}
+    {{if gt (len .Orders) 0}}
+      <table>
+        <thead>
+          <tr>
+            <th>N° Pedido</th>
+            <th>Cliente</th>
+            <th>Productos</th>
+            <th>Estado</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{range .Orders}}
+            <tr>
+              <td>#{{.ShortID}}</td>
+              <td>{{.BuyerName}}</td>
+              <td>
+                <ul style="margin:0;padding-left:1rem;">
+                  {{range .Items}}
+                    <li>{{.Qty}}x {{.Name}}</li>
+                  {{end}}
+                </ul>
+              </td>
+              <td><span class="status {{.Status}}">{{.Status}}</span></td>
+            </tr>
           {{end}}
-        </td>
-        <td>{{.Status}}</td>
-      </tr>
+        </tbody>
+      </table>
     {{else}}
-      <tr><td colspan="4" class="muted">No hay pedidos todavía.</td></tr>
+      <p style="text-align:center; color:#64748b;">No hay pedidos activos por ahora.</p>
     {{end}}
-    </tbody>
-  </table>
+  {{else}}
+    <p style="text-align:center; color:#64748b;">No hay pedidos activos por ahora.</p>
+  {{end}}
 </body>
 </html>

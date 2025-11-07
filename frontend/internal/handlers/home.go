@@ -16,14 +16,24 @@ import (
 
 // NewHome devuelve el handler GET "/" (lista de productos + datos del comprador)
 func NewHome(colProducts *mongo.Collection, uploadsBase string, tmpl *template.Template) http.HandlerFunc {
+	type viewData struct {
+		Products       []models.Product
+		UploadsBase    string
+		DefaultName    string
+		DefaultEmail   string
+		DefaultAddress string
+	}
+
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
 		defer cancel()
 
+		// ⚠️ Proyectamos también _id porque la plantilla usa .ID.Hex
 		cur, err := colProducts.Find(
 			ctx,
 			bson.M{"is_active": true},
 			options.Find().SetProjection(bson.M{
+				"_id":         1,
 				"name":        1,
 				"price":       1,
 				"description": 1,
@@ -42,16 +52,17 @@ func NewHome(colProducts *mongo.Collection, uploadsBase string, tmpl *template.T
 			return
 		}
 
-		data := map[string]any{
-			"products":       products,
-			"uploadsBase":    uploadsBase,
-			"defaultName":    "",
-			"defaultEmail":   "",
-			"defaultAddress": "",
+		data := viewData{
+			Products:       products, // 👈 Mayúscula: coincide con la plantilla
+			UploadsBase:    uploadsBase,
+			DefaultName:    "",
+			DefaultEmail:   "",
+			DefaultAddress: "",
 		}
 
 		var buf bytes.Buffer
-		if err := tmpl.Execute(&buf, data); err != nil {
+		// Si tu template tiene varios ficheros parseados, usa ExecuteTemplate
+		if err := tmpl.ExecuteTemplate(&buf, "home.tmpl", data); err != nil {
 			log.Printf("[tpl] home error: %v", err)
 			http.Error(w, "error al renderizar la página", http.StatusInternalServerError)
 			return

@@ -2,74 +2,83 @@
 <html lang="es">
 <head>
   <meta charset="utf-8">
-  <title>Tienda Pingüina</title>
+  <title>Tienda Pingüina 🐧</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
-    body { font-family: system-ui, -apple-system, Segoe UI, Roboto; background:#f8fafc; margin:2rem; }
-    .card { border:1px solid #e2e8f0; border-radius:10px; padding:1rem; background:white; margin-bottom:1rem; max-width:900px; }
-    .row { display:flex; gap:1rem; }
-    input, button, select { padding:.55rem .7rem; border:1px solid #e5e7eb; border-radius:.5rem; }
-    button { background:#111827; color:#fff; }
-    img { max-width:120px; border-radius:6px; border:1px solid #e5e7eb; }
-    .buyer { border:1px solid #e2e8f0; background:white; padding:1rem; border-radius:10px; margin-bottom:1rem; }
+    body { font-family: 'Inter', system-ui, sans-serif; background:#f8fafc; margin:0; padding:0; }
+    header { background:#2563eb; color:white; padding:1.2rem 2rem; text-align:center; }
+    h1 { margin:0; font-weight:600; font-size:1.6rem; }
+    main { max-width:1100px; margin:2rem auto; padding:0 1rem; }
+    .grid { display:grid; gap:1.5rem; grid-template-columns:repeat(auto-fit,minmax(270px,1fr)); }
+    .card { background:white; border-radius:12px; box-shadow:0 2px 8px rgba(0,0,0,0.05); padding:1.2rem; display:flex; flex-direction:column; }
+    .card img { width:100%; height:180px; object-fit:cover; border-radius:10px; margin-bottom:1rem; }
+    .name { font-size:1.1rem; font-weight:600; color:#111827; }
+    .desc { color:#4b5563; font-size:.9rem; margin:.4rem 0 1rem; min-height:2.5rem; }
+    .price { font-size:1rem; font-weight:700; color:#2563eb; margin-bottom:.6rem; }
+    form.checkout { margin-top:1.5rem; display:grid; gap:.8rem; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); align-items:start; }
+    .box { background:white; border:1px solid #e5e7eb; border-radius:10px; padding:1rem; }
+    label { font-size:.85rem; color:#374151; display:block; margin-bottom:.25rem; }
+    input[type="text"], input[type="email"], input[type="number"] { width:100%; border:1px solid #d1d5db; border-radius:6px; padding:.5rem; }
+    .submit { grid-column:1 / -1; }
+    button { background:#2563eb; color:white; border:none; padding:.75rem 1rem; border-radius:8px; font-weight:600; cursor:pointer; }
+    button:hover { background:#1e40af; }
+    footer { text-align:center; color:#6b7280; padding:1.2rem 0; font-size:.9rem; }
+    a { color:#2563eb; text-decoration:none; }
+    a:hover { text-decoration:underline; }
   </style>
 </head>
 <body>
-  <h1>Menú de productos</h1>
+  <header>
+    <h1>Tienda Pingüina</h1>
+    <p>Los mejores productos del hielo, sin salir del iglú.</p>
+  </header>
 
-  <form method="POST" action="/checkout">
-    <!-- Datos del comprador -->
-    <div class="buyer">
-      <h2>Datos del comprador</h2>
-      <div class="row">
-        <div>
-          <label>Tu nombre:</label><br>
-          <input type="text" name="buyer_name" value="{{.defaultName}}" required>
-        </div>
-        <div>
-          <label>Dirección:</label><br>
-          <input type="text" name="address" value="{{.defaultAddress}}" required>
-        </div>
-        <div>
-          <label>Email:</label><br>
-          <input type="email" name="email" value="{{.defaultEmail}}" required>
-        </div>
+  <main>
+    <!-- Un solo formulario para el checkout multi-ítem -->
+    <form class="checkout" method="POST" action="/checkout">
+      <div class="grid" style="grid-column:1 / -1;">
+        {{if .Products}}
+          {{range .Products}}
+            <div class="card">
+              <img src="{{$.UploadsBase}}{{.ImagePath}}" alt="{{.Name}}">
+              <div>
+                <p class="name">{{.Name}}</p>
+                <p class="desc">{{.Description}}</p>
+                <p class="price">Gs {{.Price}}</p>
+              </div>
+              <!-- Cantidad por producto: qty_<ObjectID>  -->
+              <label for="qty_{{.ID.Hex}}">Cantidad</label>
+              <input id="qty_{{.ID.Hex}}" type="number" name="qty_{{.ID.Hex}}" min="0" value="0">
+            </div>
+          {{end}}
+        {{else}}
+          <p style="text-align:center; color:#64748b;">No hay productos disponibles todavía.</p>
+        {{end}}
       </div>
-    </div>
 
-    {{range .products}}
-      <div class="card">
-        <div class="row">
-          <div>
-            {{if .ImagePath}}
-              <img 
-                src="{{ printf "%s%s" $.uploadsBase .ImagePath }}"
-                alt="Imagen {{.Name}}"
-                style="width:150px; border-radius:8px; object-fit:cover;">
-            {{else}}
-              <img src="data:image/svg+xml;utf8,
-                <svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'>
-                  <rect width='100%' height='100%' fill='%23f3f4f6'/>
-                  <text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' fill='%239ca3af' font-size='12'>
-                    Sin imagen
-                  </text>
-                </svg>">
-            {{end}}
-          </div>
-          <div style="flex:1">
-            <h2>{{.Name}} — ${{.Price}}</h2>
-            <p>{{.Description}}</p>
-
-            <label>Cantidad</label><br>
-            <!-- OJO: acá usamos .ID.Hex porque ahora es un struct con ObjectID -->
-            <input type="number" name="qty_{{.ID.Hex}}" min="0" value="0" style="width:6rem">
-          </div>
-        </div>
+      <!-- Datos del comprador -->
+      <div class="box">
+        <label for="buyer_name">Tu nombre</label>
+        <input id="buyer_name" type="text" name="buyer_name" required>
       </div>
-    {{end}}
+      <div class="box">
+        <label for="address">Dirección</label>
+        <input id="address" type="text" name="address" required>
+      </div>
+      <div class="box">
+        <label for="email">Email</label>
+        <input id="email" type="email" name="email" required>
+      </div>
 
-    <div class="card">
-      <button type="submit">Hacer pedido</button>
-    </div>
-  </form>
+      <div class="submit">
+        <button type="submit">Hacer pedido</button>
+      </div>
+    </form>
+  </main>
+
+  <footer>
+    <p>© 2025 Penguin Store — Desarrollado por Gaston Duarte</p>
+    <a href="/orders">Ver pedidos en curso</a>
+  </footer>
 </body>
 </html>
