@@ -1,8 +1,21 @@
+# Node
 node_modules/
-.env
-data/
 backend/src/uploads/
+
+# Go
+frontend/.env
+frontend/bin/
+frontend/tmp/
+
+# Env files
+.env
+backend/.env
+
+# Data / build
+data/
 bin/
+
+# OS / IDE
 .DS_Store
 .vscode/
 .idea/
