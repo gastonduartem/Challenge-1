@@ -42,21 +42,32 @@ Este proyecto cumple con los requisitos del challenge:
 
 ## Estructura del proyecto
 
+```
 PenguinStore/
-├── backend/ → Panel Admin (Node.js)
-│ ├── controllers/
-│ ├── models/
-│ ├── routes/
-│ ├── views/ → Plantillas Pug
-│ ├── src/uploads/→ Imágenes subidas
-│ └── .env
+├─ backend/                      # Panel Admin (Node.js)
+│  ├─ src/
+│  │  ├─ controllers/
+│  │  ├─ middleware/
+│  │  ├─ models/
+│  │  ├─ routes/
+│  │  ├─ views/
+│  │  └─ uploads/
+│  ├─ package.json
+│  └─ .env
 │
-├── frontend/ → Tienda pública (Go)
-│ ├── cmd/server/ → main.go
-│ ├── templates/ → Plantillas HTML
-│ └── .env
+├─ frontend/                     # Tienda pública (Go)
+│  ├─ cmd/
+│  │  └─ server/
+│  │     └─ main.go
+│  ├─ internal/
+│  │  ├─ templates/
+│  │  ├─ handlers/
+│  │  └─ models/
+│  └─ .env
 │
-└── docker-compose.yml (opcional)
+├─ docker-compose.yml
+└─ README.md
+```
 
 ---
 
@@ -129,6 +140,8 @@ MONGO_DB=penguin_shop
 3. Los pedidos aparecen en el panel de Paula.
 4. Al marcar “entregado”, el stock se actualiza.
 5. Todo se muestra sin JavaScript, 100% renderizado en servidor.
+
+## Créditos
 
 Hecho por Gastón Duarte.
 Desafío “Larry el Pingüino” — Penguin Academy.
