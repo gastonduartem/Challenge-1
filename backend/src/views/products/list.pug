@@ -84,29 +84,6 @@ block content
                   onclick="return confirm('¿Seguro que querés eliminar este producto?');"
                 ) Eliminar
 
-              //- 📸 Subir imagen — permite actualizar solo la imagen
-              //- onchenge=this.form.submit(): Se envía automáticamente al elegir imagen
-              form(
-                method="POST"
-                action=`/products/${p._id}/image`
-                enctype="multipart/form-data"
-                style="display:inline;"
-              )
-                input(type="hidden" name="token" value=token)
-                if csrf_token
-                  input(type="hidden" name="csrf_token" value=csrf_token)
-                input(
-                  type="file"
-                  name="image"
-                  accept="image/*"
-                  style="display:none;"
-                  id=`upload_${p._id}`
-                  onchange="this.form.submit();" 
-                )
-                label(
-                  for=`upload_${p._id}`
-                  style="background: #28a745; color:white; padding: 0.3rem 0.6rem; border-radius: 4px; cursor:pointer;"
-                ) Subir imagen
 
   //- Botón para volver al dashboard (si querés)
   hr
