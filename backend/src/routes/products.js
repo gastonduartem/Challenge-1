@@ -1,51 +1,66 @@
 // routes/products.js — Rutas de productos con protección JWT y subida de imágenes
 
-const express = require('express');                     // Framework HTTP
-const router = express.Router();                        // Instancia del router
+// Dependencias principales
+const express = require('express');
+const router = express.Router();                        // Router Express
+const { requireToken } = require('../middleware/auth');  // Middleware JWT (valida Paula)
+const { upload } = require('../middleware/multer');      // Configuración de Multer para imágenes
 
-const { requireToken } = require('../middleware/auth'); // Middleware que valida/rota JWT
-const { upload } = require('../middleware/multer');     // Multer configurado (fileFilter, storage)
-
-// Importamos controladores del CRUD
+// Importamos los controladores (CRUD de productos)
 const {
-  list_products,            // Lista productos
-  new_product_form,         // Form de alta
-  create_product,           // Crear producto
-  edit_product_form,        // Form de edición
-  update_product,           // Actualizar producto
-  delete_product,           // Borrar producto
-  upload_image              // Subir/actualizar imagen
+  list_products,     // Listar productos
+  new_product_form,  // Mostrar formulario de creación
+  create_product,    // Crear producto nuevo
+  edit_product_form, // Mostrar formulario de edición
+  update_product,    // Actualizar producto existente
+  delete_product,    // Eliminar producto
+  upload_image       // Subir o actualizar imagen
 } = require('../controllers/productController');
 
 
-// IMPORTANTE: este router se monta en app.js con app.use('/products', router)
-// Por eso las rutas acá son relativas a /products
+// NOTA IMPORTANTE:
+// Este router se monta con app.use('/products', router)
+// Por lo tanto, todas las rutas aquí son relativas a /products
 
-// GET /products — listado (token por query)
-router.get('/', requireToken, list_products);           // Protegido por JWT
 
-// GET /products/new — form de alta (token por query)
-router.get('/new', requireToken, new_product_form);     // Protegido por JWT
+// GET /products — Listado de productos
+// Muestra todos los productos en una tabla SSR (sin JS)
+router.get('/', requireToken, list_products);
 
-// POST /products — crear (multipart)
-// Primero multer parsea form-data (req.body/req.file), luego requireToken lee req.body.token
+
+// GET /products/new — Formulario de alta
+// Renderiza un formulario vacío con CSRF y token
+router.get('/new', requireToken, new_product_form);
+
+
+// POST /products — Crear producto
+// - Se usa multer.single('image') para manejar imagen opcional
+// - requireToken valida que el usuario esté autenticado
+// - create_product crea el documento en Mongo
 router.post('/', upload.single('image'), requireToken, create_product);
 
-// GET /products/:id/edit — form de edición (token por query)
-// No usar multer en GET (no hay multipart en GET)
-// Sólo validar JWT
+
+// GET /products/:id/edit — Formulario de edición
+// - Renderiza el formulario precargado con datos existentes
+// - No necesita multer (GET no tiene body)
 router.get('/:id/edit', requireToken, edit_product_form);
 
-// POST /products/:id — actualizar (multipart)
-// Igual que crear: multer PRIMERO, luego requireToken
+
+// POST /products/:id — Actualizar producto existente
+// - Igual que el alta, pero actualiza el documento
+// - multer primero parsea la imagen si se envía
 router.post('/:id', upload.single('image'), requireToken, update_product);
 
-// POST /products/:id/delete — eliminar (no multipart)
-// Basta con validar JWT
+
+// POST /products/:id/delete — Eliminar producto
+// - Solo se necesita validar el token
 router.post('/:id/delete', requireToken, delete_product);
 
-// POST /products/:id/image — subir/actualizar sólo la imagen (multipart)
-// También: multer PRIMERO, luego requireToken
+
+// POST /products/:id/image — Actualizar imagen exclusivamente
+// - Permite subir solo una nueva imagen sin tocar otros campos
 router.post('/:id/image', upload.single('image'), requireToken, upload_image);
 
-module.exports = router;                                // Exportamos el router
+
+// Exportación del router
+module.exports = router;

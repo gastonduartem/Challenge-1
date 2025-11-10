@@ -1,80 +1,107 @@
 // auth.js — Rutas de login/logout y dashboard minimal
 
-const express = require('express');                                    // Router de Express
-const bcrypt = require('bcryptjs');                                    // Comparar hash de contraseña
-const AdminUser = require('../models/AdminUser');                      // Modelo admin
-const { create_token } = require('../services/jwt');                   // Crear JWT
-const { generate_csrf_token, verify_and_consume_csrf_token } = require('../middleware/csrf'); // CSRF
-const { require_jwt } = require('../middleware/requireJWT');           // Middleware de protección
-const {  requireToken } = require('../middleware/auth');
+// Importaciones necesarias
+const express = require('express');        // Framework para manejar rutas HTTP
+const bcrypt = require('bcryptjs');        // Comparar contraseñas hasheadas
+const AdminUser = require('../models/AdminUser'); // Modelo del administrador (Paula)
+const { create_token } = require('../services/jwt'); // Función para crear JWTs
+const { generate_csrf_token, verify_and_consume_csrf_token } = require('../middleware/csrf'); // CSRF helpers
+const { require_jwt } = require('../middleware/requireJWT'); // Middleware que valida token desde el body (POST)
+const { requireToken } = require('../middleware/auth');       // Middleware que valida token desde headers/query
 
-const router = express.Router();                                       // Creamos router
+// Creamos un router de Express (agrupa todas las rutas relacionadas)
+const router = express.Router();
 
-// GET /login — muestra formulario de login (SSR Pug)
-router.get('/login', async (req, res) => {                              // Ruta GET para login
-  const csrf_token = generate_csrf_token();                             // Generamos token CSRF
-  // Renderizamos la vista 'login' pasando el csrf_token
-  return res.status(200).render('login', { csrf_token });               // Mostramos form con CSRF
+
+// GET /login — muestra formulario de login
+router.get('/login', async (req, res) => {
+  // Generamos un token CSRF nuevo para proteger el formulario
+  const csrf_token = generate_csrf_token();
+
+  // Renderizamos la vista SSR (login.pug), inyectando el token CSRF
+  return res.status(200).render('login', { csrf_token });
 });
+
 
 // POST /login — procesa credenciales y emite JWT (sin cookies)
-router.post('/login', async (req, res) => {                             // Ruta POST para login
-  const { email, password, csrf_token } = req.body;                     // Leemos datos del form
+router.post('/login', async (req, res) => {
+  // Extraemos los campos enviados por el formulario
+  const { email, password, csrf_token } = req.body;
 
-  if (!verify_and_consume_csrf_token(csrf_token)) {                     // Validamos CSRF
-    return res.status(403).send('CSRF inválido.');                      // Rechazamos si falla
+  // Validamos el token CSRF (previene ataques cross-site)
+  if (!verify_and_consume_csrf_token(csrf_token)) {
+    return res.status(403).send('CSRF inválido.');
   }
 
-  const admin = await AdminUser.findOne({ email });                     // Buscamos admin por email
-  if (!admin) {                                                         // Si no existe
-    return res.status(401).render('login', {                            // Volvemos al login
-      error_msg: 'Credenciales inválidas.',                             // Mensaje de error
-      csrf_token: generate_csrf_token()                                 // Nuevo CSRF para reintentar
+  // Buscamos al admin en la base de datos
+  const admin = await AdminUser.findOne({ email });
+  if (!admin) {
+    // Si el usuario no existe, devolvemos el login con mensaje de error
+    return res.status(401).render('login', {
+      error_msg: 'Credenciales inválidas.',
+      csrf_token: generate_csrf_token() // Nuevo CSRF para reintentar
     });
   }
 
-  const ok = await admin.validatePassword(password);                    // Validamos contraseña
-  if (!ok) {                                                            // Si no coincide
-    return res.status(401).render('login', {                            // Volvemos al login
-      error_msg: 'Credenciales inválidas.',                             // Mensaje de error
-      csrf_token: generate_csrf_token()                                 // Nuevo CSRF
+  // Validamos la contraseña comparando con el hash almacenado
+  const ok = await admin.validatePassword(password);
+  if (!ok) {
+    // Si la contraseña no coincide → volvemos al login
+    return res.status(401).render('login', {
+      error_msg: 'Credenciales inválidas.',
+      csrf_token: generate_csrf_token()
     });
   }
 
-  // Credenciales correctas: emitimos JWT
-  const token = create_token({ admin_id: admin._id.toString(), email }); // Creamos token con claims mínimos
+  // Credenciales correctas → creamos un JWT
+  // Incluimos los claims mínimos: ID y email
+  const token = create_token({
+    admin_id: admin._id.toString(),
+    email
+  });
 
-  // Render SSR del dashboard inicial ya con token (oculto) y un CSRF fresco
-  return res.status(200).render('dashboard', {                          // Renderizamos dashboard
-    token,                                                              // Token para forms
-    csrf_token: generate_csrf_token(),                                  // CSRF para próximos POST
-    admin_email: email                                                  // Datos para mostrar en UI
+  // Renderizamos el dashboard con SSR (sin redirección)
+  // El token se inyecta como campo oculto (para futuros POST)
+  return res.status(200).render('dashboard', {
+    token,                             // JWT a incluir en formularios
+    csrf_token: generate_csrf_token(), // Nuevo CSRF para operaciones posteriores
+    admin_email: email                 // Mostramos el email en el header
   });
 });
 
-// POST /logout — invalida “lógicamente” (no almacenamos lista negra; simplemente no reenviamos token)
-router.post('/logout', async (req, res) => {                            // Ruta POST para logout
-  // Sólo mostramos el login nuevamente con un CSRF nuevo
-  return res.status(200).render('login', { csrf_token: generate_csrf_token() }); // Volvemos al login
-});
 
-// POST /dashboard — ejemplo de ruta protegida (POST-only)
-router.post('/dashboard', require_jwt, async (req, res) => {            // Protegemos con require_jwt
-  // Al llegar aquí, res.locals.rotated_token es el token nuevo (rotación)
-  return res.status(200).render('dashboard', {                          // Renderizamos dashboard
-    token: res.locals.rotated_token,                                    // Pasamos token rotado a la vista
-    csrf_token: generate_csrf_token(),                                  // CSRF para siguientes formularios
-    admin_email: res.locals.admin_claims.email                          // Mostramos email de Paula
-  });
-});
-
-// GET /dashboard (con token en query)
-router.get('/dashboard', requireToken, (req, res) => {
-  res.status(200).render('dashboard', {
-    admin_email: res.locals.admin_claims?.email || '',
-    token: res.locals.rotated_token,
+// POST /logout — “cierra” sesión lógicamente
+// No existe una lista negra de tokens (stateless JWT).
+// Simplemente se renderiza nuevamente el login, sin reenviar token.
+router.post('/logout', async (req, res) => {
+  return res.status(200).render('login', {
     csrf_token: generate_csrf_token()
   });
 });
 
-module.exports = router;                                                // Exportamos router
+
+// POST /dashboard — ejemplo de ruta protegida (solo POST)
+// Usa el middleware require_jwt, que valida el token desde req.body.token
+router.post('/dashboard', require_jwt, async (req, res) => {
+  // En este punto, el token ya fue validado y rotado por el middleware
+  return res.status(200).render('dashboard', {
+    token: res.locals.rotated_token,    // Nuevo token (rotado)
+    csrf_token: generate_csrf_token(),  // CSRF nuevo para formularios
+    admin_email: res.locals.admin_claims.email // Email del admin logueado
+  });
+});
+
+
+// GET /dashboard — versión GET (token en query string)
+// Usa el middleware requireToken, que busca el token en headers o query (?token=)
+router.get('/dashboard', requireToken, (req, res) => {
+  res.status(200).render('dashboard', {
+    admin_email: res.locals.admin_claims?.email || '', // Email del admin
+    token: res.locals.rotated_token,                   // Token rotado
+    csrf_token: generate_csrf_token()                  // CSRF nuevo
+  });
+});
+
+
+// Exportamos el router para usarlo en app.js o server.js
+module.exports = router;

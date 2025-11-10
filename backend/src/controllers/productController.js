@@ -1,103 +1,127 @@
 // controllers/productController.js — CRUD de productos (SSR sin JS)
 
-const Product = require('../models/Product');                                  // Modelo de Producto
-const { generate_csrf_token, verify_and_consume_csrf_token } = require('../middleware/csrf'); // CSRF
+// Importamos el modelo Product para manipular los documentos en MongoDB
+const Product = require('../models/Product');
 
-// Listado de productos (GET /products)
-async function list_products(req, res) {                                       // Handler de listado
-  const products = await Product.find().sort({ created_at: -1 });              // Buscamos productos ordenados
-  return res.status(200).render('products/list', {                             // Renderizamos la vista
-    token: res.locals.rotated_token,                                           // Pasamos token rotado
-    csrf_token: generate_csrf_token(),                                         // Token CSRF para formularios
-    admin_email: res.locals.admin_claims?.email || '',                         // Para el header
-    products                                                                    // Datos a mostrar
+// Importamos funciones CSRF: para generar tokens nuevos y verificar los que llegan del form
+const { generate_csrf_token, verify_and_consume_csrf_token } = require('../middleware/csrf');
+
+
+// GET /products — listar productos
+async function list_products(req, res) {
+  // Buscamos todos los productos en MongoDB ordenados por fecha de creación (más recientes primero)
+  const products = await Product.find().sort({ created_at: -1 });
+
+  // Renderizamos la vista "products/list.pug" pasando los datos necesarios
+  return res.status(200).render('products/list', {
+    token: res.locals.rotated_token,            // JWT rotado, usado para navegación segura del admin
+    csrf_token: generate_csrf_token(),          // Token CSRF nuevo (protege formularios)
+    admin_email: res.locals.admin_claims?.email || '', // Mostramos el email de Paula en el header
+    products                                    // Lista de productos obtenidos de la DB
   });
 }
 
-// Form de nuevo producto (GET /products/new)
-async function new_product_form(req, res) {                                    // Handler de form vacío
-  return res.status(200).render('products/form', {                             // Render form
-    token: res.locals.rotated_token,                                           // Token rotado
-    csrf_token: generate_csrf_token(),                                         // CSRF
-    admin_email: res.locals.admin_claims?.email || '',                         // Header
-    mode: 'create',                                                            // Modo crear
-    product: { name:'', description:'', price:'', stock:'', is_active:true }   // Valores por defecto
+
+// GET /products/new — formulario vacío para crear producto
+async function new_product_form(req, res) {
+  // Renderizamos el formulario en modo “crear”
+  return res.status(200).render('products/form', {
+    token: res.locals.rotated_token,
+    csrf_token: generate_csrf_token(),
+    admin_email: res.locals.admin_claims?.email || '',
+    mode: 'create',                              // Modo “create” lo usa la vista para los textos/botones
+    product: { name:'', description:'', price:'', stock:'', is_active:true } // Valores iniciales
   });
 }
 
-// Crear producto (POST /products) — con imagen opcional vía multer.single('image')
-async function create_product(req, res) {                                      // Handler de creación
-  const { csrf_token, name, description, price, stock, is_active } = req.body; // Campos del body
-  if (!verify_and_consume_csrf_token(csrf_token)) {                            // Validamos CSRF
-    return res.status(403).send('CSRF inválido');                              // Si falla, cortamos
+
+// POST /products — crear producto
+async function create_product(req, res) {
+  // Desestructuramos los campos del formulario (body)
+  const { csrf_token, name, description, price, stock, is_active } = req.body;
+
+  // Verificamos token CSRF para seguridad
+  if (!verify_and_consume_csrf_token(csrf_token)) {
+    return res.status(403).send('CSRF inválido'); // Si es inválido, devolvemos 403
   }
 
-  // Convertimos price/stock a número
-  const price_num = Number(price);                                             // Precio a número
-  const stock_num = Number(stock);                                             // Stock a número
+  // Convertimos precio y stock a número
+  const price_num = Number(price);
+  const stock_num = Number(stock);
 
-  // Validamos campos mínimos
+  // Validamos campos mínimos (name requerido, price/stock válidos)
   if (!name || isNaN(price_num) || isNaN(stock_num) || price_num < 0 || stock_num < 0) {
-    return res.status(400).render('products/form', {                           // Re-render con error
-      token: res.locals.rotated_token,                                         // Token
-      csrf_token: generate_csrf_token(),                                       // Nuevo CSRF
-      admin_email: res.locals.admin_claims?.email || '',                       // Header
-      mode: 'create',                                                          // Modo
-      error_msg: 'Campos inválidos (price/stock >= 0, name requerido).',       // Mensaje
-      product: { name, description, price, stock, is_active: is_active === 'on' } // Re-llenamos
+    // Si algo falla, re-renderizamos el formulario con un mensaje de error
+    return res.status(400).render('products/form', {
+      token: res.locals.rotated_token,
+      csrf_token: generate_csrf_token(),
+      admin_email: res.locals.admin_claims?.email || '',
+      mode: 'create',
+      error_msg: 'Campos inválidos (price/stock >= 0, name requerido).',
+      // Repoblamos los valores para que Paula no tenga que reescribirlos
+      product: { name, description, price, stock, is_active: is_active === 'on' }
     });
   }
 
-  const imgPath = req.file ? `/uploads/${req.file.filename}` : undefined;      // Si subieron imagen, armamos ruta pública
+  // Si se subió imagen (via multer.single('image')), guardamos su ruta pública
+  const imgPath = req.file ? `/uploads/${req.file.filename}` : undefined;
 
-  // Creamos el documento
-  await Product.create({                                                        // Insert en Mongo
+  // Creamos el documento del producto en MongoDB
+  await Product.create({
     name,
     description: description || '',
     price: price_num,
     stock: stock_num,
-    is_active: is_active === 'on',
-    image_path: imgPath,                                                       // Guardamos imagen si hay
-    created_at: new Date(),                                                    // Auditoría simple
-    updated_at: new Date()
+    is_active: is_active === 'on', // Checkbox -> booleano
+    image_path: imgPath,           // Guardamos la imagen si existe
+    created_at: new Date(),        // Fecha de creación
+    updated_at: new Date()         // Fecha de última modificación (igual al crear)
   });
 
-  // Redirigimos al listado con el token en query (sin cookies)
-  return res.redirect(`/products?token=${res.locals.rotated_token}`);          // Volvemos a la lista
+  // Redirigimos al listado general de productos (manteniendo sesión por token)
+  return res.redirect(`/products?token=${res.locals.rotated_token}`);
 }
 
-// Form de editar (GET /products/:id/edit)
-async function edit_product_form(req, res) {                                   // Handler de edición
-  const { id } = req.params;                                                   // ID desde ruta
-  const product = await Product.findById(id);                                  // Buscamos doc
-  if (!product) return res.status(404).send('Producto no encontrado');         // 404 si no existe
 
-  return res.status(200).render('products/form', {                             // Render form con datos
-    token: res.locals.rotated_token,                                           // Token
-    csrf_token: generate_csrf_token(),                                         // CSRF
-    admin_email: res.locals.admin_claims?.email || '',                         // Header
-    mode: 'edit',                                                              // Modo editar
-    product                                                                     // Datos actuales
+// GET /products/:id/edit — formulario de edición
+async function edit_product_form(req, res) {
+  const { id } = req.params;                // Tomamos el ID de la URL
+  const product = await Product.findById(id); // Buscamos el producto en Mongo
+  if (!product) return res.status(404).send('Producto no encontrado'); // 404 si no existe
+
+  // Renderizamos el mismo form pero en modo “edit”
+  return res.status(200).render('products/form', {
+    token: res.locals.rotated_token,
+    csrf_token: generate_csrf_token(),
+    admin_email: res.locals.admin_claims?.email || '',
+    mode: 'edit', // Usado en la vista para mostrar botones/textos correctos
+    product       // Datos actuales del producto
   });
 }
 
-// Actualizar (POST /products/:id)
-async function update_product(req, res) {                                      // Handler de update
-  const { id } = req.params;                                                   // ID
-  const { csrf_token, name, description, price, stock, is_active } = req.body; // Campos
-  if (!verify_and_consume_csrf_token(csrf_token)) {                            // Validamos CSRF
-    return res.status(403).send('CSRF inválido');                              // Error
+
+// POST /products/:id — actualizar producto existente
+async function update_product(req, res) {
+  const { id } = req.params;
+  const { csrf_token, name, description, price, stock, is_active } = req.body;
+
+  // Validamos CSRF
+  if (!verify_and_consume_csrf_token(csrf_token)) {
+    return res.status(403).send('CSRF inválido');
   }
 
-  const price_num = Number(price);                                             // A número
+  // Convertimos a número
+  const price_num = Number(price);
   const stock_num = Number(stock);
 
+  // Validamos datos igual que en create
   if (!name || isNaN(price_num) || isNaN(stock_num) || price_num < 0 || stock_num < 0) {
-    const product_again = await Product.findById(id);                          // Para rellenar
-    return res.status(400).render('products/form', {                           // Re-render con error
-      token: res.locals.rotated_token,                                         // Token
-      csrf_token: generate_csrf_token(),                                       // Nuevo CSRF
-      admin_email: res.locals.admin_claims?.email || '',                       // Header
+    // Recuperamos el producto actual para re-renderizarlo con el error
+    const product_again = await Product.findById(id);
+    return res.status(400).render('products/form', {
+      token: res.locals.rotated_token,
+      csrf_token: generate_csrf_token(),
+      admin_email: res.locals.admin_claims?.email || '',
       mode: 'edit',
       error_msg: 'Campos inválidos (price/stock >= 0, name requerido).',
       product: {
@@ -111,7 +135,8 @@ async function update_product(req, res) {                                      /
     });
   }
 
-  await Product.findByIdAndUpdate(id, {                                        // Update en Mongo
+  // Si todo es válido, actualizamos en MongoDB
+  await Product.findByIdAndUpdate(id, {
     name,
     description: description || '',
     price: price_num,
@@ -120,42 +145,65 @@ async function update_product(req, res) {                                      /
     updated_at: new Date()
   });
 
-  return res.redirect(`/products?token=${res.locals.rotated_token}`);          // Volvemos a la lista
+  // Redirigimos al listado general
+  return res.redirect(`/products?token=${res.locals.rotated_token}`);
 }
 
-// Borrar (POST /products/:id/delete)
-async function delete_product(req, res) {                                      // Handler delete
-  const { id } = req.params;                                                   // ID
-  const { csrf_token } = req.body;                                             // CSRF del form
-  if (!verify_and_consume_csrf_token(csrf_token)) {                            // Validamos CSRF
-    return res.status(403).send('CSRF inválido');                              // Error
+
+// POST /products/:id/delete — borrar producto
+async function delete_product(req, res) {
+  const { id } = req.params;
+  const { csrf_token } = req.body;
+
+  // Validamos CSRF
+  if (!verify_and_consume_csrf_token(csrf_token)) {
+    return res.status(403).send('CSRF inválido');
   }
-  await Product.findByIdAndDelete(id);                                         // Borramos doc
-  return res.redirect(`/products?token=${res.locals.rotated_token}`);          // Volvemos a la lista
+
+  // Borramos el producto
+  await Product.findByIdAndDelete(id);
+
+  // Redirigimos a la lista
+  return res.redirect(`/products?token=${res.locals.rotated_token}`);
 }
 
-// Subir/actualizar imagen (POST /products/:id/image)
-async function upload_image(req, res) {                                        // Handler de imagen
-  const { id } = req.params;                                                   // ID del producto
-  const { csrf_token } = req.body;                                             // CSRF
-  if (!verify_and_consume_csrf_token(csrf_token)) {                            // Validamos CSRF
-    return res.status(403).send('CSRF inválido');                              // Error
-  }
-  if (!req.file) {                                                             // Si no hay archivo
-    return res.status(400).send('No se recibió archivo');                      // 400
-  }
-  const public_path = `/uploads/${req.file.filename}`;                          // Ruta pública
-  await Product.findByIdAndUpdate(id, { image_path: public_path, updated_at: new Date() }); // Guardamos
 
-  return res.redirect(`/products?token=${res.locals.rotated_token}`);          // Volvemos a la lista
+// POST /products/:id/image — subir o reemplazar imagen
+async function upload_image(req, res) {
+  const { id } = req.params;
+  const { csrf_token } = req.body;
+
+  // Validamos CSRF
+  if (!verify_and_consume_csrf_token(csrf_token)) {
+    return res.status(403).send('CSRF inválido');
+  }
+
+  // Validamos que realmente se haya subido un archivo
+  if (!req.file) {
+    return res.status(400).send('No se recibió archivo');
+  }
+
+  // Calculamos la ruta pública de la imagen (dentro de /uploads)
+  const public_path = `/uploads/${req.file.filename}`;
+
+  // Actualizamos el campo image_path en el producto
+  await Product.findByIdAndUpdate(id, {
+    image_path: public_path,
+    updated_at: new Date()
+  });
+
+  // Volvemos al listado
+  return res.redirect(`/products?token=${res.locals.rotated_token}`);
 }
 
+
+// Exportación de controladores
 module.exports = {
-  list_products,
-  new_product_form,
-  create_product,
-  edit_product_form,
-  update_product,
-  delete_product,
-  upload_image
+  list_products,       // Mostrar lista
+  new_product_form,    // Mostrar formulario vacío
+  create_product,      // Crear producto nuevo
+  edit_product_form,   // Mostrar formulario de edición
+  update_product,      // Actualizar existente
+  delete_product,      // Eliminar producto
+  upload_image         // Subir imagen
 };
