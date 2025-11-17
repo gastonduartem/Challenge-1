@@ -1,0 +1,186 @@
+// models/delivery.go
+package models
+
+import "go.mongodb.org/mongo-driver/bson/primitive" // Para ObjectID de Mongo
+
+// Delivery representa un documento en la colección "deliveries"
+type Delivery struct {
+    ID         primitive.ObjectID `bson:"_id,omitempty"` // ID de Mongo
+    OrderID    primitive.ObjectID `bson:"order_id"`      // id del pedido
+    BuyerName  string             `bson:"buyer_name"`    // nombre cliente
+    Address    string             `bson:"address"`       // dirección de entrega
+    Total      float64            `bson:"total"`         // total del delivery
+    CreatedAt  string             `bson:"created_at"`    // fecha de creación
+}
+
+
+// repository/delivery_repository.go
+package repository
+
+import (
+    "context" // Manejar timeout y cancelación
+    "time"    // Definir tiempo máximo
+
+    "example.com/tu_proyecto/database" // Tu paquete de conexión a Mongo
+    "example.com/tu_proyecto/models"   // Tu modelo Delivery
+
+    "go.mongodb.org/mongo-driver/bson" // Filtros BSON
+)
+
+// GetAllDeliveries trae todos los documentos de la colección "deliveries"
+func GetAllDeliveries() ([]models.Delivery, error) {
+    // Creamos un contexto con timeout de 10 segundos
+    ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+    defer cancel() // Liberamos el contexto al final
+
+    // Obtenemos la colección "deliveries" desde nuestro helper
+    col := database.Collection("deliveries")
+
+    // Buscamos todos los documentos (filtro vacío = todo)
+    cursor, err := col.Find(ctx, bson.M{})
+    if err != nil {
+        // Si falla la consulta, devolvemos el error
+        return nil, err
+    }
+    // Cerramos el cursor al terminar de usarlo
+    defer cursor.Close(ctx)
+
+    // Slice donde guardamos todos los deliveries
+    var deliveries []models.Delivery
+
+    // Iteramos cada documento que vino del cursor
+    for cursor.Next(ctx) {
+        var d models.Delivery // Variable temporal
+
+        // Decodificamos el documento BSON en el struct Delivery
+        if err := cursor.Decode(&d); err != nil {
+            // Si falla el decode, devolvemos error
+            return nil, err
+        }
+
+        // Agregamos el delivery al slice
+        deliveries = append(deliveries, d)
+    }
+
+    // Devolvemos el slice con los deliveries, y nil como error
+    return deliveries, nil
+}
+
+// handlers/delivery_handlers.go
+package handlers
+
+import (
+    "encoding/json" // Convertir structs a JSON
+    "net/http"      // Manejar HTTP
+
+    "example.com/tu_proyecto/repository" // Acceso a datos
+)
+
+// DebugDeliveriesHandler devuelve todos los deliveries en JSON
+func DebugDeliveriesHandler(w http.ResponseWriter, r *http.Request) {
+    // Solo permitimos GET
+    if r.Method != http.MethodGet {
+        http.Error(w, "Método no permitido", http.StatusMethodNotAllowed)
+        return
+    }
+
+    // Llamamos a la función que trae los deliveries
+    deliveries, err := repository.GetAllDeliveries()
+    if err != nil {
+        http.Error(w, "Error trayendo deliveries", http.StatusInternalServerError)
+        return
+    }
+
+    // Indicamos que la respuesta es JSON
+    w.Header().Set("Content-Type", "application/json")
+
+    // Enviamos el slice como JSON
+    json.NewEncoder(w).Encode(deliveries)
+}
+
+// En el main.go agregar lo sgte
+http.HandleFunc("/debug/deliveries", handlers.DebugDeliveriesHandler)
+
+
+
+
+
+
+
+// models/Delivery.js
+const mongoose = require('mongoose'); // ODM para MongoDB
+
+// Definimos el schema de Delivery (histórico de entregas)
+const delivered_item_schema = new mongoose.Schema({
+  product_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Product', required: true }, // id producto
+  name:       { type: String, required: true }, // nombre snapshot
+  qty:        { type: Number, required: true, min: 1 }, // cantidad
+  unit_price: { type: Number, required: true, min: 0 }, // precio unitario
+  subtotal:   { type: Number, required: true, min: 0 }  // subtotal
+}, { _id: false });
+
+const delivery_schema = new mongoose.Schema({
+  order_id:    { type: mongoose.Schema.Types.ObjectId, required: true }, // referencia al pedido original
+  items:       { type: [delivered_item_schema], required: true },        // items snapshot
+  total:       { type: Number, required: true, min: 0 },                 // total snapshot
+  buyer_name:  { type: String, required: true },                         // datos cliente
+  address:     { type: String, required: true },                         // dirección
+  created_at:  { type: Date, default: Date.now }                         // fecha
+});
+
+
+ENDPOINT
+// Creamos el modelo 'Delivery' basado en el schema
+const Delivery = mongoose.model('Delivery', delivery_schema);
+
+// Exportamos el modelo
+module.exports = Delivery;
+
+// routes/deliveryRoutes.js
+const express = require('express');        // Framework HTTP
+const Delivery = require('../models/Delivery'); // Modelo Delivery
+
+const router = express.Router(); // Creamos router
+
+// GET /debug/deliveries → devuelve todos los deliveries en JSON
+router.get('/debug/deliveries', async (req, res) => {
+  try {
+    // Buscamos todos los deliveries
+    const deliveries = await Delivery.find();
+
+    // Devolvemos JSON
+    res.json(deliveries);
+  } catch (err) {
+    console.error('Error obteniendo deliveries:', err.message);
+    res.status(500).json({ message: 'Error obteniendo deliveries' });
+  }
+});
+
+// Exportamos el router
+module.exports = router;
+
+
+Agg en mi app.js
+const express = require('express');             // Servidor HTTP
+const mongoose = require('mongoose');           // Conexión Mongo
+require('dotenv').config();                     // Cargar .env
+
+const deliveryRoutes = require('./routes/deliveryRoutes'); // Rutas
+
+const app = express(); // Creamos la app
+
+// Conexión a Mongo
+mongoose.connect(process.env.MONGO_URI)
+  .then(() => console.log('✅ Mongo conectado'))
+  .catch((err) => console.error('❌ Error Mongo:', err.message));
+
+// Middleware JSON
+app.use(express.json());
+
+// Usamos las rutas de delivery
+app.use(deliveryRoutes);
+
+// Iniciar servidor
+app.listen(3000, () => {
+  console.log('🚀 Servidor en http://localhost:3000');
+});

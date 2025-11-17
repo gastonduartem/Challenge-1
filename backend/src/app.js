@@ -121,6 +121,9 @@ const deliver_routes = require('./routes/deliver');
 app.use('/', deliver_routes);
 
 
+app.use('/deliver', deliver_routes);
+
+
 // Middleware final — 404
 app.use((req, res) => {
   return res.status(404).send('Recurso no encontrado'); // En caso de ruta inválida

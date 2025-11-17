@@ -129,5 +129,32 @@ async function mark_as_delivered(req, res) {
   }
 }
 
+// GET o POST /orders — lista los pedidos (con posible filtro)
+async function list_orders_delivered(req, res) {
+  try {
+    console.log("Hola")
+    // Se permite recibir el estado de filtro tanto por query string (?status=)
+    // como por body (por si la vista lo manda como POST).
+
+    // Si el estado existe, filtramos por ese campo; si no, devolvemos todos los pedidos
+
+    // Buscamos en la colección "orders" y ordenamos los resultados por fecha de creación descendente
+    const deliveries = await Delivery.find({}).sort({ delivered_at: -1 }).lean();
+    console.log(deliveries);
+
+    // Renderizamos la vista "orders/list.pug" pasando los datos al template
+    return res.status(200).render('orders/deliver', {
+      token: res.locals.rotated_token,              // JWT rotado que mantiene sesión segura en admin
+      csrf_token: generate_csrf_token(),            // Token CSRF nuevo (single-use) para formularios
+      admin_email: res.locals.admin_claims?.email || '', // Mostramos el email de Paula (si está logueada)
+      deliveries,                                       // Lista de pedidos obtenidos de la DB
+      auto_refresh_list: false                       // Flag opcional, si querés agregar <meta refresh> en la vista
+    });
+  } catch (err) {
+    console.error('[deliveries] list error:', err.message);
+    return res.status(500).send('Error al obtener las entregas');
+  }
+}
+
 // Exportamos la función para usarla en la ruta POST /orders/:id/deliver
-module.exports = { mark_as_delivered };
+module.exports = { mark_as_delivered, list_orders_delivered };

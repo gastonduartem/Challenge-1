@@ -1,0 +1,28 @@
+//- views/orders/deliver.pug
+extends ../layout
+
+block content
+  h2(style="margin-bottom:1rem") Pedidos entregados
+
+  a(
+    href=`/dashboard?token=${token}`
+    style="margin-bottom:1rem; display:inline-block; background:#1e293b; color:white; padding:.5rem 1rem; border-radius:6px; text-decoration:none;"
+  ) ← Volver al Dashboard
+
+  if !deliveries || deliveries.length === 0
+    p No hay pedidos entregados.
+  else
+    table
+      thead
+        tr
+          th Fecha
+          th Cliente
+          th Total
+      tbody
+        each d in deliveries
+          tr
+            //- delivered_at es Date; toLocaleDateString existe en Node
+            td= d.delivered_at && d.delivered_at.toLocaleDateString('es-PY')
+            td= d.buyer_name
+            td #{(d.total || 0).toLocaleString('es-PY')} Gs
+
