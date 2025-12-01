@@ -19,5 +19,3 @@ bin/
 .DS_Store
 .vscode/
 .idea/
-
-evaluacion.go

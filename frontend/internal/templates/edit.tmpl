@@ -1,0 +1,116 @@
+{{define "edit.tmpl"}}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Editar pedido</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f5f7fa;
+            margin: 0;
+            padding: 40px;
+        }
+        .container {
+            max-width: 480px;
+            margin: 0 auto;
+            background: white;
+            padding: 28px;
+            border-radius: 10px;
+            box-shadow: 0 4px 18px rgba(0,0,0,0.08);
+        }
+        h1 {
+            margin-top: 0;
+            text-align: center;
+            font-size: 22px;
+            margin-bottom: 20px;
+            color: #333;
+        }
+        .info {
+            margin-bottom: 20px;
+            padding: 12px;
+            background: #eef3f8;
+            border-radius: 6px;
+            font-size: 14px;
+            color: #555;
+        }
+        label {
+            font-weight: bold;
+            margin-bottom: 4px;
+            display: block;
+            font-size: 14px;
+        }
+        input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            font-size: 15px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            outline: none;
+            transition: 0.2s;
+        }
+        input[type="text"]:focus {
+            border-color: #4A90E2;
+            box-shadow: 0 0 4px rgba(74,144,226,0.5);
+        }
+        .actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        button {
+            flex: 1;
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 15px;
+            border: none;
+            cursor: pointer;
+        }
+        .btn-primary {
+            background: #4A90E2;
+            color: white;
+        }
+        .btn-primary:hover {
+            background: #357ABD;
+        }
+        .btn-secondary {
+            background: #e5e7eb;
+            color: #111827;
+        }
+        .btn-secondary:hover {
+            background: #d1d5db;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Editar pedido</h1>
+
+    <div class="info">
+        <b>ID:</b> {{.ID.Hex}} <br>
+        <b>Estado:</b> {{.Status}} <br>
+        <b>Email:</b> {{.Email}}
+    </div>
+
+    <form method="POST" action="/edit?id={{.ID.Hex}}">
+        <label>Nombre del comprador</label>
+        <input type="text" name="buyer_name" value="{{.BuyerName}}" required>
+
+        <label>Dirección</label>
+        <input type="text" name="address" value="{{.Address}}" required>
+
+        <div class="actions">
+            <button type="submit" class="btn-primary">Guardar cambios</button>
+
+            <a href="/orders" style="flex:1; text-decoration:none;">
+                <button type="button" class="btn-secondary">Volver</button>
+            </a>
+        </div>
+    </form>
+</div>
+
+</body>
+</html>
+{{end}}

@@ -30,6 +30,7 @@
             <th>Cliente</th>
             <th>Productos</th>
             <th>Estado</th>
+            <th>Editar</th>
           </tr>
         </thead>
         <tbody>
@@ -45,6 +46,10 @@
                 </ul>
               </td>
               <td><span class="status {{.Status}}">{{.Status}}</span></td>
+              <td><a href="/edit?id={{.ID.Hex}}">
+                <button>Editar</button>
+              </a>
+              <td>
             </tr>
           {{end}}
         </tbody>

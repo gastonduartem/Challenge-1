@@ -1,0 +1,166 @@
+Fase 1 – Navegación / Mostrar algo mínimo
+
+Objetivo: que el botón o link lleve a la nueva vista y muestre cualquier cosa.
+
+Paso 1.1 – Botón / Link en el front
+
+Go SSR – template:
+<a href="/edit?id={{.ID.Hex}}">
+    <button>Editar</button>
+</a>
+JS (HTML normal o template):
+<a href="/orders/{{order._id}}/edit">
+    <button>Editar</button>
+</a>
+
+Paso 1.2 – Ruta y handler “dummy”
+
+Go:
+http.HandleFunc("/edit", func(w http.ResponseWriter, r *http.Request) {
+    id := r.URL.Query().Get("id")
+    fmt.Fprintf(w, "LLEGASTE A /edit con id=%s\n", id)
+})
+Node/Express:
+app.get('/orders/:id/edit', (req, res) => {
+  res.send(`LLEGASTE A /orders/${req.params.id}/edit`);
+});
+Probás el click.
+Si ves el texto → navegación lista.
+EN ESE MOMENTO recién tocás DB / templates.
+
+Fase 2 – Traer datos y mostrarlos crudos
+
+Objetivo: comprobar que sabés pedir a la DB y renderizar algo simple.
+
+Paso 2.1 – Traer de la DB por id
+
+Go (Mongo):
+var order Order
+
+err := ordersCol.FindOne(ctx, bson.M{"_id": objID}).Decode(&order)
+if err != nil {
+    http.Error(w, "pedido no encontrado", 404)
+    return
+}
+
+JS (Mongoose):
+const order = await Order.findById(req.params.id);
+if (!order) return res.status(404).send('Pedido no encontrado');
+
+Paso 2.2 – Mostrar datos sin diseño todavía
+
+Go (texto plano):
+fmt.Fprintf(w, "Pedido de %s, estado=%s, total=%d\n", order.BuyerName, order.Status, order.Total)
+
+JS:
+res.json(order);
+
+Fase 3 – Renderizar vista con template / HTML
+
+Objetivo: cambiar el fmt.Fprintf / res.json por una vista linda y clara.
+Go:
+w.Header().Set("Content-Type", "text/html; charset=utf-8")
+if err := editTpl.Execute(w, order); err != nil {
+    fmt.Println("ERROR TEMPLATE:", err)
+    http.Error(w, "error al renderizar plantilla", 500)
+    return
+}
+Y en edit.tmpl usás {{.BuyerName}}, {{.Status}}, etc.
+
+Node / Express (sin engine de templates, rápido):
+res.send(`
+  <h1>Editar pedido</h1>
+  <p>Cliente: ${order.buyer_name}</p>
+  <p>Estado: ${order.status}</p>
+`);
+Hasta acá todavía no hiciste lógica de negocio, solo visualización.
+
+Fase 4 – Agregar la lógica de negocio
+
+Acá entra el famoso: “solo si el estado es nuevo”.
+
+Go:
+if order.Status != "nuevo" {
+    http.Error(w, "solo se pueden editar pedidos con estado 'nuevo'", http.StatusBadRequest)
+    return
+}
+
+JS:
+if (order.status !== 'nuevo') {
+  return res.status(400).send('Solo se pueden editar pedidos con estado "nuevo"');
+}
+
+Fase 5 – Procesar POST / Update
+
+Cuando ya:
+
+Navegás ok.
+
+Viste datos.
+
+Tenés form.
+
+recién ahí agregás el POST.
+
+Go – patrón mental:
+
+ParseForm()
+
+FormValue
+
+UpdateByID
+
+Redirect
+
+if r.Method == http.MethodPost {
+    if err := r.ParseForm(); err != nil {
+        http.Error(w, "error formulario", 400)
+        return
+    }
+
+    newBuyerName := r.FormValue("buyer_name")
+    newAddress := r.FormValue("address")
+
+    update := bson.M{
+        "$set": bson.M{
+            "buyer_name": newBuyerName,
+            "address":    newAddress,
+        },
+    }
+
+    _, err := ordersCol.UpdateByID(ctx, objID, update)
+    if err != nil {
+        http.Error(w, "error actualizando", 500)
+        return
+    }
+
+    http.Redirect(w, r, "/orders", http.StatusFound)
+    return
+}
+
+JS – patrón mental:
+
+req.body
+
+findById
+
+validar status
+
+set campos
+
+save()
+
+redirect()
+
+app.post('/orders/:id/edit', async (req, res) => {
+  const order = await Order.findById(req.params.id);
+  if (!order) return res.status(404).send('No encontrado');
+  if (order.status !== 'nuevo') return res.status(400).send('No editable');
+
+  order.buyer_name = req.body.buyer_name;
+  order.address = req.body.address;
+
+  await order.save();
+  res.redirect('/orders');
+});
+

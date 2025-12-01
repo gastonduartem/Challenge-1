@@ -111,13 +111,14 @@ func main() {
 		"internal/templates/home.tmpl",
 		"internal/templates/orders_board.tmpl",
 		"internal/templates/order_status.tmpl",
+		"internal/templates/edit.tmpl",
 	))
 
 	// Lookup obtiene cada subplantilla por nombre exacto
 	homeTmpl := tmpls.Lookup("home.tmpl")
 	ordersTmpl := tmpls.Lookup("orders_board.tmpl")
 	statusTmpl := tmpls.Lookup("order_status.tmpl")
-
+	editTmpl := tmpls.Lookup("edit.tmpl")
 	// INYECCIÓN DE DEPENDENCIAS
 
 	// Creamos una estructura que agrupa lo que el handler de /orders necesita.
@@ -132,6 +133,7 @@ func main() {
 	http.HandleFunc("/checkout", handlers.NewCheckout(colProducts, colOrders))
 	http.HandleFunc("/orders", deps.OrdersBoard) // handler de panel público de pedidos
 	http.HandleFunc("/status/", handlers.NewStatus(colOrders, colDeliveries, statusTmpl))
+	http.HandleFunc("/edit", handlers.NewEdit(colOrders, editTmpl))
 
 	// Health check → endpoint simple para verificar si el servidor responde
 	http.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
